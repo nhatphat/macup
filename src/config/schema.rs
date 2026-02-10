@@ -151,15 +151,8 @@ impl Config {
             }
         }
 
-        // Check mas section - if has apps, mas is required
-        if let Some(mas) = &self.mas {
-            if !mas.apps.is_empty() {
-                managers.push("mas".to_string());
-            }
-        }
-
-        // Note: npm and cargo auto-install their runtimes inline,
-        // so they don't need to be in the managers list
+        // Note: mas, npm, and cargo auto-install their runtimes inline in their sections
+        // Only brew needs to be in the managers list (foundation)
 
         managers
     }

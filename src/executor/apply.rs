@@ -21,7 +21,6 @@ struct ApplyErrors {
 struct ManagerFailure {
     name: String,
     reason: String,
-    affected_packages: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -77,7 +76,6 @@ pub fn apply_plan(config: &Config, plan: &ExecutionPlan, dry_run: bool) -> Resul
                                 errors.manager_failures.push(ManagerFailure {
                                     name: manager_name.clone(),
                                     reason: e.to_string(),
-                                    affected_packages: get_affected_packages(config, manager_name),
                                 });
 
                                 if fail_fast {
@@ -162,23 +160,45 @@ pub fn apply_plan(config: &Config, plan: &ExecutionPlan, dry_run: bool) -> Resul
                             .bold()
                     );
 
-                    // Check if mas is available
+                    // Auto-install mas if not found (like npm/cargo)
                     if !crate::utils::command_exists("mas") {
-                        println!("  ⚠️  Skipped (mas not available)");
+                        println!(
+                            "  ⚠️  {} not found, installing {} via brew...",
+                            "mas".yellow(),
+                            "mas-cli".cyan()
+                        );
 
-                        // Record failures for all apps
-                        for app in &mas_config.apps {
-                            errors.package_failures.push(PackageFailure {
-                                package: format!("{} ({})", app.name, app.id),
-                                manager: "mas".to_string(),
-                                reason: "mas-cli not available".to_string(),
-                            });
+                        if dry_run {
+                            println!("    → Would run: brew install mas");
+                        } else {
+                            match install_runtime_via_brew("mas") {
+                                Ok(_) => {
+                                    println!("  ✓ {} installed", "mas".green());
+                                }
+                                Err(e) => {
+                                    println!("  ❌ Failed to install mas: {}", e);
+
+                                    // Record failures for all apps
+                                    for app in &mas_config.apps {
+                                        errors.package_failures.push(PackageFailure {
+                                            package: format!("{} ({})", app.name, app.id),
+                                            manager: "mas".to_string(),
+                                            reason: format!("mas installation failed: {}", e),
+                                        });
+                                    }
+
+                                    if fail_fast {
+                                        bail!("Failed to install mas");
+                                    }
+
+                                    println!();
+                                    continue;
+                                }
+                            }
                         }
-
-                        println!();
-                        continue;
                     }
 
+                    // Now mas is available, proceed with app installation
                     if dry_run {
                         for app in &mas_config.apps {
                             println!("  → Would install: {} ({})", app.name, app.id);
@@ -461,7 +481,7 @@ fn check_and_install_manager(name: &str, dry_run: bool) -> Result<()> {
         return Ok(());
     }
 
-    // Not installed - must install (all managers are required if called)
+    // Not installed
     println!("  → Installing {}...", name.yellow());
 
     if dry_run {
@@ -489,29 +509,10 @@ fn check_and_install_manager(name: &str, dry_run: bool) -> Result<()> {
 
             println!("  ✓ {} installed", name.green());
         }
-        "mas" => {
-            // Install mas via brew
-            if !crate::utils::command_exists("brew") {
-                bail!("mas requires brew, but brew is not installed");
-            }
-
-            let status = Command::new("brew")
-                .env("HOMEBREW_NO_AUTO_UPDATE", "1")
-                .args(["install", "mas"])
-                .status()
-                .context("Failed to execute brew install mas")?;
-
-            if !status.success() {
-                bail!("mas-cli installation failed");
-            }
-
-            println!("  ✓ {} installed", name.green());
-        }
         _ => {
-            bail!(
-                "{} is required but not installed. Please install manually.",
-                name
-            );
+            // Other managers (mas, npm, cargo) are auto-installed inline in their sections
+            println!("  ℹ️  {} will be auto-installed when needed", name.cyan());
+            return Ok(());
         }
     }
 
@@ -557,30 +558,6 @@ fn install_runtime_via_brew(formula: &str) -> Result<()> {
     Ok(())
 }
 
-/// Get list of packages affected by a manager failure
-fn get_affected_packages(config: &Config, manager_name: &str) -> Vec<String> {
-    let mut packages = Vec::new();
-
-    match manager_name {
-        "mas" => {
-            if let Some(mas_config) = &config.mas {
-                for app in &mas_config.apps {
-                    packages.push(format!("{} ({})", app.name, app.id));
-                }
-            }
-        }
-        "brew" => {
-            if let Some(brew_config) = &config.brew {
-                packages.extend(brew_config.formulae.iter().cloned());
-                packages.extend(brew_config.casks.iter().cloned());
-            }
-        }
-        _ => {}
-    }
-
-    packages
-}
-
 /// Print error summary at end of apply
 fn print_error_summary(errors: &ApplyErrors) {
     println!();
@@ -594,14 +571,6 @@ fn print_error_summary(errors: &ApplyErrors) {
         for failure in &errors.manager_failures {
             println!("  ❌ {} ({})", failure.name.red(), "manager");
             println!("     Reason: {}", failure.reason);
-
-            if !failure.affected_packages.is_empty() {
-                println!("     Affected packages:");
-                for pkg in &failure.affected_packages {
-                    println!("       - {}", pkg);
-                }
-            }
-
             println!("     Fix: Try 'brew install {}' manually", failure.name);
             println!();
         }
