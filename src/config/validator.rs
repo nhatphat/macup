@@ -7,9 +7,6 @@ pub fn validate_config(config: &Config) -> Result<()> {
     // Check for dependency cycles
     check_dependency_cycles(config)?;
 
-    // Validate manager names
-    validate_manager_names(config)?;
-
     Ok(())
 }
 
@@ -75,18 +72,4 @@ fn has_cycle(
 
     stack.remove(node);
     false
-}
-
-/// Validate that manager names are recognized
-fn validate_manager_names(config: &Config) -> Result<()> {
-    let valid_managers = ["brew", "mas", "npm", "cargo"];
-
-    // Check required managers (if explicitly declared)
-    for manager in &config.managers.required {
-        if !valid_managers.contains(&manager.as_str()) {
-            anyhow::bail!("Unknown required manager: {}", manager);
-        }
-    }
-
-    Ok(())
 }

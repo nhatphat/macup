@@ -6,9 +6,6 @@ pub struct Config {
     pub settings: Settings,
 
     #[serde(default)]
-    pub managers: Managers,
-
-    #[serde(default)]
     pub brew: Option<BrewConfig>,
 
     #[serde(default)]
@@ -47,12 +44,6 @@ impl Default for Settings {
             max_parallel: default_max_parallel(),
         }
     }
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct Managers {
-    #[serde(default)]
-    pub required: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -157,17 +148,8 @@ impl Config {
         managers
     }
 
-    /// Get final list of required managers (explicit + auto-detected)
+    /// Get list of required managers (auto-detected only)
     pub fn get_required_managers(&self) -> Vec<String> {
-        let mut all = self.managers.required.clone();
-
-        // Add auto-detected managers if not already in list
-        for manager in self.detect_required_managers() {
-            if !all.contains(&manager) {
-                all.push(manager);
-            }
-        }
-
-        all
+        self.detect_required_managers()
     }
 }
