@@ -131,7 +131,7 @@ pub struct SystemConfig {
 
 impl Config {
     /// Auto-detect required managers from config sections
-    /// Returns managers that MUST be installed based on declared packages
+    /// Returns managers that MUST be installed based on declared packages or dependencies
     pub fn detect_required_managers(&self) -> Vec<String> {
         let mut managers = Vec::new();
 
@@ -142,8 +142,40 @@ impl Config {
             }
         }
 
+        // Check if any section depends on brew
+        let mas_needs_brew = self
+            .mas
+            .as_ref()
+            .map_or(false, |m| m.depends_on.contains(&"brew".to_string()));
+        let npm_needs_brew = self
+            .npm
+            .as_ref()
+            .map_or(false, |n| n.depends_on.contains(&"brew".to_string()));
+        let cargo_needs_brew = self
+            .cargo
+            .as_ref()
+            .map_or(false, |c| c.depends_on.contains(&"brew".to_string()));
+        let install_needs_brew = self
+            .install
+            .as_ref()
+            .map_or(false, |i| i.depends_on.contains(&"brew".to_string()));
+        let system_needs_brew = self
+            .system
+            .as_ref()
+            .map_or(false, |s| s.depends_on.contains(&"brew".to_string()));
+
+        let needs_brew = mas_needs_brew
+            || npm_needs_brew
+            || cargo_needs_brew
+            || install_needs_brew
+            || system_needs_brew;
+
+        if needs_brew && !managers.contains(&"brew".to_string()) {
+            managers.push("brew".to_string());
+        }
+
         // Note: mas, npm, and cargo auto-install their runtimes inline in their sections
-        // Only brew needs to be in the managers list (foundation)
+        // But brew is the foundation - must be available if anything depends on it
 
         managers
     }

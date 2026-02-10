@@ -7,8 +7,22 @@ use crate::managers::{
 use crate::system::SystemManager;
 use anyhow::{bail, Context, Result};
 use colored::Colorize;
+use std::collections::HashSet;
 use std::path::Path;
 use std::process::Command;
+
+/// Tracks execution context and state
+#[derive(Debug, Default)]
+struct ExecutionContext {
+    available_managers: HashSet<String>,
+    skipped_phases: Vec<SkippedPhase>,
+}
+
+#[derive(Debug)]
+struct SkippedPhase {
+    name: String,
+    reason: String,
+}
 
 /// Tracks failures during apply execution
 #[derive(Debug, Default)]
@@ -40,6 +54,7 @@ pub fn apply_plan(config: &Config, plan: &ExecutionPlan, dry_run: bool) -> Resul
     let max_parallel = config.settings.max_parallel;
     let fail_fast = config.settings.fail_fast;
     let mut errors = ApplyErrors::default();
+    let mut ctx = ExecutionContext::default();
 
     println!("{}", "=".repeat(50).bright_blue());
     println!("{}", "Starting macup apply".bright_blue().bold());
@@ -52,6 +67,37 @@ pub fn apply_plan(config: &Config, plan: &ExecutionPlan, dry_run: bool) -> Resul
     }
 
     for phase in &plan.phases {
+        // Check if dependencies are satisfied
+        if !can_execute_phase(phase, &ctx.available_managers) {
+            let missing_deps: Vec<_> = phase
+                .depends_on
+                .iter()
+                .filter(|dep| !ctx.available_managers.contains(*dep))
+                .collect();
+
+            let reason = format!(
+                "Missing dependencies: {}",
+                missing_deps
+                    .iter()
+                    .map(|s| s.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+
+            ctx.skipped_phases.push(SkippedPhase {
+                name: phase.name.clone(),
+                reason: reason.clone(),
+            });
+
+            println!(
+                "  ⚠️  Skipping {} phase: {}",
+                phase.name.yellow(),
+                reason.yellow()
+            );
+            println!();
+            continue;
+        }
+
         match &phase.section_type {
             SectionType::Managers => {
                 println!(
@@ -61,7 +107,7 @@ pub fn apply_plan(config: &Config, plan: &ExecutionPlan, dry_run: bool) -> Resul
                         .bold()
                 );
 
-                // Get required managers (explicit + auto-detected)
+                // Get required managers (auto-detected)
                 let required_managers = config.get_required_managers();
 
                 if required_managers.is_empty() {
@@ -69,7 +115,10 @@ pub fn apply_plan(config: &Config, plan: &ExecutionPlan, dry_run: bool) -> Resul
                 } else {
                     for manager_name in &required_managers {
                         match check_and_install_manager(manager_name, dry_run) {
-                            Ok(_) => {}
+                            Ok(_) => {
+                                // Track successfully installed/available manager
+                                ctx.available_managers.insert(manager_name.clone());
+                            }
                             Err(e) => {
                                 println!("  ❌ Failed to install {}: {}", manager_name.red(), e);
 
@@ -461,9 +510,20 @@ pub fn apply_plan(config: &Config, plan: &ExecutionPlan, dry_run: bool) -> Resul
     }
 
     // Print summary
-    if errors.has_failures() {
-        print_error_summary(&errors);
-        bail!("macup completed with errors");
+    let has_issues = errors.has_failures() || !ctx.skipped_phases.is_empty();
+
+    if has_issues {
+        print_summary(&errors, &ctx);
+
+        if errors.has_failures() {
+            bail!("macup completed with errors");
+        } else {
+            // Only skipped phases, not a hard error
+            println!(
+                "\n{}",
+                "⚠️  Some phases were skipped due to missing dependencies".yellow()
+            );
+        }
     }
 
     println!("{}", "=".repeat(50).bright_green());
@@ -471,6 +531,23 @@ pub fn apply_plan(config: &Config, plan: &ExecutionPlan, dry_run: bool) -> Resul
     println!("{}", "=".repeat(50).bright_green());
 
     Ok(())
+}
+
+/// Check if a phase can execute based on satisfied dependencies
+fn can_execute_phase(phase: &crate::executor::Phase, available_managers: &HashSet<String>) -> bool {
+    // Managers phase can always run
+    if matches!(phase.section_type, SectionType::Managers) {
+        return true;
+    }
+
+    // Check if all dependencies are satisfied
+    for dep in &phase.depends_on {
+        if !available_managers.contains(dep) {
+            return false;
+        }
+    }
+
+    true
 }
 
 fn check_and_install_manager(name: &str, dry_run: bool) -> Result<()> {
@@ -558,20 +635,33 @@ fn install_runtime_via_brew(formula: &str) -> Result<()> {
     Ok(())
 }
 
-/// Print error summary at end of apply
-fn print_error_summary(errors: &ApplyErrors) {
+/// Print comprehensive summary at end of apply
+fn print_summary(errors: &ApplyErrors, ctx: &ExecutionContext) {
     println!();
     println!("{}", "=".repeat(50).yellow());
-    println!("{}", "⚠️  macup completed with errors".yellow().bold());
+    println!("{}", "⚠️  macup completed with issues".yellow().bold());
     println!("{}", "=".repeat(50).yellow());
     println!();
+
+    // Print skipped phases first
+    if !ctx.skipped_phases.is_empty() {
+        println!("{}", "Skipped phases:".yellow().bold());
+        for skipped in &ctx.skipped_phases {
+            println!("  ⊘ {} phase", skipped.name.yellow());
+            println!("     Reason: {}", skipped.reason);
+            println!();
+        }
+    }
 
     if !errors.manager_failures.is_empty() {
         println!("{}", "Failed manager installations:".red().bold());
         for failure in &errors.manager_failures {
             println!("  ❌ {} ({})", failure.name.red(), "manager");
             println!("     Reason: {}", failure.reason);
-            println!("     Fix: Try 'brew install {}' manually", failure.name);
+            println!(
+                "     Fix: Install {} manually and re-run macup apply",
+                failure.name
+            );
             println!();
         }
     }
