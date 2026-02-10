@@ -50,7 +50,12 @@ impl ApplyErrors {
     }
 }
 
-pub fn apply_plan(config: &Config, plan: &ExecutionPlan, dry_run: bool) -> Result<()> {
+pub fn apply_plan(
+    config: &Config,
+    plan: &ExecutionPlan,
+    dry_run: bool,
+    with_system_settings: bool,
+) -> Result<()> {
     let max_parallel = config.settings.max_parallel;
     let fail_fast = config.settings.fail_fast;
     let mut errors = ApplyErrors::default();
@@ -486,6 +491,19 @@ pub fn apply_plan(config: &Config, plan: &ExecutionPlan, dry_run: bool) -> Resul
             }
 
             SectionType::System => {
+                // Skip system settings unless explicitly requested
+                if !with_system_settings {
+                    if config.system.is_some() {
+                        println!(
+                            "{}",
+                            "⊘ Skipping system settings (use --with-system-settings to apply)"
+                                .yellow()
+                        );
+                        println!();
+                    }
+                    continue;
+                }
+
                 if let Some(system_config) = &config.system {
                     println!(
                         "{}",
@@ -540,7 +558,18 @@ fn can_execute_phase(phase: &crate::executor::Phase, available_managers: &HashSe
         return true;
     }
 
-    // Check if all dependencies are satisfied
+    // Package manager phases: Always run, they handle dependencies internally
+    // They check actual runtime availability (mas/node/cargo), not brew dependency
+    // This allows flexibility: if user has node installed manually, npm phase still works
+    if matches!(
+        phase.section_type,
+        SectionType::Brew | SectionType::Mas | SectionType::Npm | SectionType::Cargo
+    ) {
+        return true;
+    }
+
+    // Install scripts and System commands: Strict dependency checking
+    // These truly need their dependencies to work
     for dep in &phase.depends_on {
         if !available_managers.contains(dep) {
             return false;

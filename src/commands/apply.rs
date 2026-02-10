@@ -3,7 +3,12 @@ use crate::executor::{apply_plan, create_execution_plan};
 use anyhow::Result;
 use std::path::Path;
 
-pub fn run(config_path: Option<&Path>, dry_run: bool, _section: Option<&str>) -> Result<()> {
+pub fn run(
+    config_path: Option<&Path>,
+    dry_run: bool,
+    with_system_settings: bool,
+    _section: Option<&str>,
+) -> Result<()> {
     // Load config
     let (path, config) = load_config_auto(config_path)?;
 
@@ -16,7 +21,7 @@ pub fn run(config_path: Option<&Path>, dry_run: bool, _section: Option<&str>) ->
     let plan = create_execution_plan(&config)?;
 
     // Apply plan
-    apply_plan(&config, &plan, dry_run)?;
+    apply_plan(&config, &plan, dry_run, with_system_settings)?;
 
     Ok(())
 }

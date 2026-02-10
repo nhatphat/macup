@@ -26,6 +26,10 @@ pub enum Command {
         #[arg(long)]
         dry_run: bool,
 
+        /// Include system settings (defaults commands)
+        #[arg(long)]
+        with_system_settings: bool,
+
         /// Apply only specific section (brew, mas, npm, cargo, install, system)
         section: Option<String>,
     },

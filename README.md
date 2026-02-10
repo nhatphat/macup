@@ -78,9 +78,12 @@ macup apply
 ### Apply full configuration
 
 ```bash
-macup apply                # Install everything from config
-macup apply --dry-run      # Preview changes without applying
+macup apply                            # Install packages only (skip system settings)
+macup apply --dry-run                  # Preview changes without applying
+macup apply --with-system-settings     # Install packages AND apply system settings
 ```
+
+**Note:** System settings (macOS defaults commands) are **skipped by default** and only run when you explicitly use `--with-system-settings`. This prevents accidentally modifying system preferences on every run.
 
 ### Add packages dynamically
 
@@ -245,6 +248,7 @@ For custom curl installers:
 #### `[system]`
 - `commands`: Array of shell commands (defaults, killall, etc.)
 - Executed sequentially after all packages are installed
+- **Only runs when `--with-system-settings` flag is provided**
 
 ## How It Works
 
@@ -259,7 +263,9 @@ For custom curl installers:
    - Npm: Auto-install Node.js if needed, then install packages
    - Cargo: Auto-install Rust if needed, then install packages
 5. **Run Install Scripts**: Sequential, with idempotency checks
-6. **Apply System Settings**: Execute commands sequentially
+6. **Apply System Settings** (optional): Execute commands sequentially
+   - Only runs with `--with-system-settings` flag
+   - Skipped by default to avoid unintended system changes
 
 ### Idempotency
 
