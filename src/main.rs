@@ -8,7 +8,7 @@ mod utils;
 
 use anyhow::Result;
 use clap::Parser;
-use cli::{Cli, Command};
+use cli::{Cli, Command, NewResource, RemoveResource};
 
 fn main() -> Result<()> {
     // Setup logging
@@ -46,6 +46,30 @@ fn main() -> Result<()> {
         } => {
             commands::add::run(cli.config.as_deref(), &manager, packages, no_install)?;
         }
+        Command::New { resource } => match resource {
+            NewResource::Manager {
+                name,
+                display,
+                icon,
+                runtime_cmd,
+                runtime_name,
+                brew_formula,
+            } => {
+                commands::new_manager::run(
+                    &name,
+                    &display,
+                    &icon,
+                    &runtime_cmd,
+                    &runtime_name,
+                    &brew_formula,
+                )?;
+            }
+        },
+        Command::Remove { resource } => match resource {
+            RemoveResource::Manager { name } => {
+                commands::remove_manager::run(&name)?;
+            }
+        },
     }
 
     Ok(())

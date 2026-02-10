@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::managers::{ManagerMetadata, PACKAGE_MANAGERS};
 use anyhow::Result;
 use std::collections::{HashMap, HashSet};
 
@@ -15,14 +16,21 @@ pub struct Phase {
     pub depends_on: Vec<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SectionType {
     Managers,
     Brew,
+    // CODEGEN_START: mas
     Mas,
+    // CODEGEN_END: mas
+    // CODEGEN_START: npm
     Npm,
+    // CODEGEN_END: npm
+    // CODEGEN_START: cargo
     Cargo,
+    // CODEGEN_END: cargo
     Install,
+    // CODEGEN_MARKER: insert_section_type_here
     System,
 }
 
@@ -47,16 +55,11 @@ pub fn create_execution_plan(config: &Config) -> Result<ExecutionPlan> {
         deps_map.insert("brew", brew.depends_on.clone());
     }
 
-    if let Some(mas) = &config.mas {
-        deps_map.insert("mas", mas.depends_on.clone());
-    }
-
-    if let Some(npm) = &config.npm {
-        deps_map.insert("npm", npm.depends_on.clone());
-    }
-
-    if let Some(cargo) = &config.cargo {
-        deps_map.insert("cargo", cargo.depends_on.clone());
+    // Use registry to iterate over package managers
+    for meta in PACKAGE_MANAGERS {
+        if let Some(manager_config) = config.get_manager_config(meta.name) {
+            deps_map.insert(meta.name, manager_config.get_depends_on().clone());
+        }
     }
 
     if let Some(system) = &config.system {
@@ -80,11 +83,15 @@ pub fn create_execution_plan(config: &Config) -> Result<ExecutionPlan> {
                 let section_type = match name {
                     "install" => SectionType::Install,
                     "brew" => SectionType::Brew,
-                    "mas" => SectionType::Mas,
-                    "npm" => SectionType::Npm,
-                    "cargo" => SectionType::Cargo,
                     "system" => SectionType::System,
-                    _ => return true,
+                    // Try registry for package managers
+                    _ => {
+                        if let Some(meta) = ManagerMetadata::get_by_name(name) {
+                            meta.section_type.clone()
+                        } else {
+                            return true; // Unknown section, skip
+                        }
+                    }
                 };
 
                 phases.push(Phase {

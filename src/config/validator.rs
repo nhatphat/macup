@@ -1,4 +1,5 @@
 use super::Config;
+use crate::managers::PACKAGE_MANAGERS;
 use anyhow::Result;
 use std::collections::{HashMap, HashSet};
 
@@ -18,15 +19,14 @@ fn check_dependency_cycles(config: &Config) -> Result<()> {
     if let Some(brew) = &config.brew {
         deps.insert("brew", brew.depends_on.clone());
     }
-    if let Some(mas) = &config.mas {
-        deps.insert("mas", mas.depends_on.clone());
+
+    // Use registry to iterate over package managers
+    for meta in PACKAGE_MANAGERS {
+        if let Some(manager_config) = config.get_manager_config(meta.name) {
+            deps.insert(meta.name, manager_config.get_depends_on().clone());
+        }
     }
-    if let Some(npm) = &config.npm {
-        deps.insert("npm", npm.depends_on.clone());
-    }
-    if let Some(cargo) = &config.cargo {
-        deps.insert("cargo", cargo.depends_on.clone());
-    }
+
     if let Some(install) = &config.install {
         deps.insert("install", install.depends_on.clone());
     }

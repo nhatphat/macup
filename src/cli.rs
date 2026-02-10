@@ -39,7 +39,7 @@ pub enum Command {
 
     /// Add package(s) to config and install
     Add {
-        /// Manager type: brew, cask, mas, npm, cargo
+        /// Manager type: brew, cask, mas, npm, cargo, gem, pipx, npx
         manager: String,
 
         /// Package name(s) or ID(s) to add
@@ -48,5 +48,55 @@ pub enum Command {
         /// Only update config, skip installation
         #[arg(long)]
         no_install: bool,
+    },
+
+    /// Create a new package manager (developer tool)
+    New {
+        #[command(subcommand)]
+        resource: NewResource,
+    },
+
+    /// Remove a package manager (developer tool)
+    Remove {
+        #[command(subcommand)]
+        resource: RemoveResource,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum NewResource {
+    /// Generate boilerplate for a new package manager
+    Manager {
+        /// Manager name (e.g., pip, gem, go)
+        name: String,
+
+        /// Display name (e.g., "pip packages")
+        #[arg(long)]
+        display: String,
+
+        /// Icon emoji (e.g., 🐍)
+        #[arg(long)]
+        icon: String,
+
+        /// Runtime command to check (e.g., pip3)
+        #[arg(long)]
+        runtime_cmd: String,
+
+        /// Human-readable runtime name (e.g., python)
+        #[arg(long)]
+        runtime_name: String,
+
+        /// Brew formula name (e.g., python)
+        #[arg(long)]
+        brew_formula: String,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum RemoveResource {
+    /// Remove a package manager
+    Manager {
+        /// Manager name (e.g., pip, gem, go)
+        name: String,
     },
 }

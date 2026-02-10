@@ -1,8 +1,14 @@
 use crate::config::Config;
 use crate::executor::{ExecutionPlan, SectionType};
 use crate::managers::{
-    brew::BrewManager, cargo_manager::CargoManager, install::InstallManager, mas::MasManager,
-    npm::NpmManager, Manager,
+    brew::BrewManager,
+    cargo_manager::CargoManager, // CODEGEN[cargo]: import
+    install::InstallManager,
+    mas::MasManager, // CODEGEN[mas]: import
+    npm::NpmManager, // CODEGEN[npm]: import
+    // CODEGEN_MARKER: insert_manager_import_here
+    Manager,
+    ManagerMetadata,
 };
 use crate::system::SystemManager;
 use anyhow::{bail, Context, Result};
@@ -49,6 +55,332 @@ impl ApplyErrors {
         !self.manager_failures.is_empty() || !self.package_failures.is_empty()
     }
 }
+
+// CODEGEN_START[mas]: handler_function
+/// Handler for Mas package manager phase
+fn apply_mas_phase(
+    config: &Config,
+    dry_run: bool,
+    max_parallel: usize,
+    fail_fast: bool,
+    errors: &mut ApplyErrors,
+) -> Result<()> {
+    let mas_config = match &config.mas {
+        Some(cfg) if !cfg.apps.is_empty() => cfg,
+        _ => return Ok(()), // No mas config or no apps
+    };
+
+    let meta = ManagerMetadata::get_by_name("mas").unwrap();
+
+    println!(
+        "{}",
+        format!("{} Installing {}...", meta.icon, meta.display_name)
+            .bright_cyan()
+            .bold()
+    );
+
+    // Auto-install mas if not found
+    if !crate::utils::command_exists(meta.runtime_command) {
+        println!(
+            "  ⚠️  {} not found, installing {} via brew...",
+            meta.runtime_command.yellow(),
+            meta.runtime_name.cyan()
+        );
+
+        if dry_run {
+            println!("    → Would run: brew install {}", meta.brew_formula);
+        } else {
+            match install_runtime_via_brew(meta.brew_formula) {
+                Ok(_) => {
+                    println!("  ✓ {} installed", meta.runtime_name.green());
+                }
+                Err(e) => {
+                    println!("  ❌ Failed to install {}: {}", meta.runtime_name, e);
+
+                    // Record failures for all apps
+                    for app in &mas_config.apps {
+                        errors.package_failures.push(PackageFailure {
+                            package: format!("{} ({})", app.name, app.id),
+                            manager: meta.name.to_string(),
+                            reason: format!("{} installation failed: {}", meta.runtime_name, e),
+                        });
+                    }
+
+                    if fail_fast {
+                        bail!("Failed to install {}", meta.runtime_name);
+                    }
+
+                    println!();
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    // Install apps
+    if dry_run {
+        for app in &mas_config.apps {
+            println!("  → Would install: {} ({})", app.name, app.id);
+        }
+    } else {
+        let mas = MasManager::new(max_parallel);
+        let app_ids: Vec<String> = mas_config
+            .apps
+            .iter()
+            .map(|app| app.id.to_string())
+            .collect();
+
+        match mas.install_packages(&app_ids) {
+            Ok(result) => {
+                print_result("Apps", &result);
+
+                // Track failures
+                for (pkg, reason) in &result.failed {
+                    errors.package_failures.push(PackageFailure {
+                        package: pkg.clone(),
+                        manager: meta.name.to_string(),
+                        reason: reason.clone(),
+                    });
+                }
+            }
+            Err(e) => {
+                println!("  ❌ {} installation failed: {}", meta.name, e);
+
+                if fail_fast {
+                    bail!("{} installation failed", meta.name);
+                }
+            }
+        }
+    }
+
+    println!();
+    Ok(())
+}
+// CODEGEN_END[mas]: handler_function
+
+// CODEGEN_START[npm]: handler_function
+/// Handler for Npm package manager phase
+fn apply_npm_phase(
+    config: &Config,
+    dry_run: bool,
+    max_parallel: usize,
+    fail_fast: bool,
+    errors: &mut ApplyErrors,
+) -> Result<()> {
+    let npm_config = match &config.npm {
+        Some(cfg) if !cfg.global.is_empty() => cfg,
+        _ => return Ok(()), // No npm config or no packages
+    };
+
+    let meta = ManagerMetadata::get_by_name("npm").unwrap();
+
+    println!(
+        "{}",
+        format!("{} Installing {}...", meta.icon, meta.display_name)
+            .bright_cyan()
+            .bold()
+    );
+
+    // Auto-install node if npm not found
+    if !crate::utils::command_exists(meta.runtime_command) {
+        println!(
+            "  ⚠️  {} not found, installing {} via brew...",
+            meta.runtime_command.yellow(),
+            meta.runtime_name.cyan()
+        );
+
+        if dry_run {
+            println!("    → Would run: brew install {}", meta.brew_formula);
+        } else {
+            match install_runtime_via_brew(meta.brew_formula) {
+                Ok(_) => {
+                    println!("  ✓ {} installed", meta.runtime_name.green());
+                }
+                Err(e) => {
+                    println!("  ❌ Failed to install {}: {}", meta.runtime_name, e);
+
+                    // Record failures for all packages
+                    for pkg in &npm_config.global {
+                        errors.package_failures.push(PackageFailure {
+                            package: pkg.clone(),
+                            manager: meta.name.to_string(),
+                            reason: format!("{} installation failed: {}", meta.runtime_name, e),
+                        });
+                    }
+
+                    if fail_fast {
+                        bail!("Failed to install {}", meta.runtime_name);
+                    }
+
+                    println!();
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    // Install packages
+    if dry_run {
+        println!("  Global packages: {:?}", npm_config.global);
+    } else {
+        let npm = NpmManager::new(max_parallel);
+        match npm.install_packages(&npm_config.global) {
+            Ok(result) => {
+                print_result("NPM packages", &result);
+
+                // Track failures
+                for (pkg, reason) in &result.failed {
+                    errors.package_failures.push(PackageFailure {
+                        package: pkg.clone(),
+                        manager: meta.name.to_string(),
+                        reason: reason.clone(),
+                    });
+                }
+            }
+            Err(e) => {
+                println!("  ❌ {} installation failed: {}", meta.name, e);
+
+                if fail_fast {
+                    bail!("{} installation failed", meta.name);
+                }
+            }
+        }
+    }
+
+    println!();
+    Ok(())
+}
+// CODEGEN_END[npm]: handler_function
+
+// CODEGEN_START[cargo]: handler_function
+/// Handler for Cargo package manager phase  
+fn apply_cargo_phase(
+    config: &Config,
+    dry_run: bool,
+    max_parallel: usize,
+    fail_fast: bool,
+    errors: &mut ApplyErrors,
+) -> Result<()> {
+    let cargo_config = match &config.cargo {
+        Some(cfg) if !cfg.packages.is_empty() => cfg,
+        _ => return Ok(()), // No cargo config or no packages
+    };
+
+    let meta = ManagerMetadata::get_by_name("cargo").unwrap();
+
+    println!(
+        "{}",
+        format!("{} Installing {}...", meta.icon, meta.display_name)
+            .bright_cyan()
+            .bold()
+    );
+
+    // Auto-install rust if cargo not found
+    if !crate::utils::command_exists(meta.runtime_command) {
+        // Check if rustup exists first
+        if crate::utils::command_exists("rustup") {
+            println!("  ⚠️  cargo not found, installing via rustup...");
+
+            if !dry_run {
+                match Command::new("rustup")
+                    .args(["toolchain", "install", "stable"])
+                    .status()
+                {
+                    Ok(status) if status.success() => {
+                        println!("  ✓ {} installed", "rust".green());
+                    }
+                    _ => {
+                        println!("  ❌ Failed to install rust via rustup");
+
+                        for pkg in &cargo_config.packages {
+                            errors.package_failures.push(PackageFailure {
+                                package: pkg.clone(),
+                                manager: meta.name.to_string(),
+                                reason: "rust installation via rustup failed".to_string(),
+                            });
+                        }
+
+                        if fail_fast {
+                            bail!("Failed to install rust via rustup");
+                        }
+
+                        println!();
+                        return Ok(());
+                    }
+                }
+            }
+        } else {
+            println!(
+                "  ⚠️  {} not found, installing {} via brew...",
+                meta.runtime_command.yellow(),
+                meta.runtime_name.cyan()
+            );
+
+            if dry_run {
+                println!("    → Would run: brew install {}", meta.brew_formula);
+            } else {
+                match install_runtime_via_brew(meta.brew_formula) {
+                    Ok(_) => {
+                        println!("  ✓ {} installed", meta.runtime_name.green());
+                    }
+                    Err(e) => {
+                        println!("  ❌ Failed to install {}: {}", meta.runtime_name, e);
+
+                        for pkg in &cargo_config.packages {
+                            errors.package_failures.push(PackageFailure {
+                                package: pkg.clone(),
+                                manager: meta.name.to_string(),
+                                reason: format!("{} installation failed: {}", meta.runtime_name, e),
+                            });
+                        }
+
+                        if fail_fast {
+                            bail!("Failed to install {}", meta.runtime_name);
+                        }
+
+                        println!();
+                        return Ok(());
+                    }
+                }
+            }
+        }
+    }
+
+    // Install packages
+    if dry_run {
+        println!("  Packages: {:?}", cargo_config.packages);
+    } else {
+        let cargo_mgr = CargoManager::new(max_parallel);
+        match cargo_mgr.install_packages(&cargo_config.packages) {
+            Ok(result) => {
+                print_result("Cargo packages", &result);
+
+                // Track failures
+                for (pkg, reason) in &result.failed {
+                    errors.package_failures.push(PackageFailure {
+                        package: pkg.clone(),
+                        manager: meta.name.to_string(),
+                        reason: reason.clone(),
+                    });
+                }
+            }
+            Err(e) => {
+                println!("  ❌ {} installation failed: {}", meta.name, e);
+
+                if fail_fast {
+                    bail!("{} installation failed", meta.name);
+                }
+            }
+        }
+    }
+
+    println!();
+    Ok(())
+}
+// CODEGEN_END[cargo]: handler_function
+
+
+// CODEGEN_MARKER: insert_handler_function_here
 
 pub fn apply_plan(
     config: &Config,
@@ -201,295 +533,26 @@ pub fn apply_plan(
                 }
             }
 
+            // CODEGEN_START[mas]: match_arm
             SectionType::Mas => {
-                if let Some(mas_config) = &config.mas {
-                    if mas_config.apps.is_empty() {
-                        continue;
-                    }
-
-                    println!(
-                        "{}",
-                        format!("📱 Installing Mac App Store apps...")
-                            .bright_cyan()
-                            .bold()
-                    );
-
-                    // Auto-install mas if not found (like npm/cargo)
-                    if !crate::utils::command_exists("mas") {
-                        println!(
-                            "  ⚠️  {} not found, installing {} via brew...",
-                            "mas".yellow(),
-                            "mas-cli".cyan()
-                        );
-
-                        if dry_run {
-                            println!("    → Would run: brew install mas");
-                        } else {
-                            match install_runtime_via_brew("mas") {
-                                Ok(_) => {
-                                    println!("  ✓ {} installed", "mas".green());
-                                }
-                                Err(e) => {
-                                    println!("  ❌ Failed to install mas: {}", e);
-
-                                    // Record failures for all apps
-                                    for app in &mas_config.apps {
-                                        errors.package_failures.push(PackageFailure {
-                                            package: format!("{} ({})", app.name, app.id),
-                                            manager: "mas".to_string(),
-                                            reason: format!("mas installation failed: {}", e),
-                                        });
-                                    }
-
-                                    if fail_fast {
-                                        bail!("Failed to install mas");
-                                    }
-
-                                    println!();
-                                    continue;
-                                }
-                            }
-                        }
-                    }
-
-                    // Now mas is available, proceed with app installation
-                    if dry_run {
-                        for app in &mas_config.apps {
-                            println!("  → Would install: {} ({})", app.name, app.id);
-                        }
-                    } else {
-                        let mas = MasManager::new(max_parallel);
-                        let app_ids: Vec<String> = mas_config
-                            .apps
-                            .iter()
-                            .map(|app| app.id.to_string())
-                            .collect();
-
-                        match mas.install_packages(&app_ids) {
-                            Ok(result) => {
-                                print_result("Apps", &result);
-
-                                // Track failures from result
-                                for (pkg, reason) in &result.failed {
-                                    errors.package_failures.push(PackageFailure {
-                                        package: pkg.clone(),
-                                        manager: "mas".to_string(),
-                                        reason: reason.clone(),
-                                    });
-                                }
-                            }
-                            Err(e) => {
-                                println!("  ❌ mas installation failed: {}", e);
-
-                                if fail_fast {
-                                    bail!("mas installation failed");
-                                }
-                            }
-                        }
-                    }
-
-                    println!();
-                }
+                apply_mas_phase(config, dry_run, max_parallel, fail_fast, &mut errors)?;
             }
+            // CODEGEN_END[mas]: match_arm
 
+            // CODEGEN_START[npm]: match_arm
             SectionType::Npm => {
-                if let Some(npm_config) = &config.npm {
-                    if npm_config.global.is_empty() {
-                        continue;
-                    }
-
-                    println!(
-                        "{}",
-                        format!("📦 Installing npm packages...")
-                            .bright_cyan()
-                            .bold()
-                    );
-
-                    // Auto-install node if npm not found
-                    if !crate::utils::command_exists("npm") {
-                        println!(
-                            "  ⚠️  {} not found, installing {} via brew...",
-                            "npm".yellow(),
-                            "node".cyan()
-                        );
-
-                        if dry_run {
-                            println!("    → Would run: brew install node");
-                        } else {
-                            match install_runtime_via_brew("node") {
-                                Ok(_) => {
-                                    println!("  ✓ {} installed", "node".green());
-                                }
-                                Err(e) => {
-                                    println!("  ❌ Failed to install node: {}", e);
-
-                                    // Record failures for all npm packages
-                                    for pkg in &npm_config.global {
-                                        errors.package_failures.push(PackageFailure {
-                                            package: pkg.clone(),
-                                            manager: "npm".to_string(),
-                                            reason: format!("node installation failed: {}", e),
-                                        });
-                                    }
-
-                                    if fail_fast {
-                                        bail!("Failed to install node");
-                                    }
-
-                                    println!();
-                                    continue;
-                                }
-                            }
-                        }
-                    }
-
-                    if dry_run {
-                        println!("  Global packages: {:?}", npm_config.global);
-                    } else {
-                        let npm = NpmManager::new(max_parallel);
-                        match npm.install_packages(&npm_config.global) {
-                            Ok(result) => {
-                                print_result("NPM packages", &result);
-
-                                // Track failures
-                                for (pkg, reason) in &result.failed {
-                                    errors.package_failures.push(PackageFailure {
-                                        package: pkg.clone(),
-                                        manager: "npm".to_string(),
-                                        reason: reason.clone(),
-                                    });
-                                }
-                            }
-                            Err(e) => {
-                                println!("  ❌ npm installation failed: {}", e);
-
-                                if fail_fast {
-                                    bail!("npm installation failed");
-                                }
-                            }
-                        }
-                    }
-
-                    println!();
-                }
+                apply_npm_phase(config, dry_run, max_parallel, fail_fast, &mut errors)?;
             }
+            // CODEGEN_END[npm]: match_arm
 
+            // CODEGEN_START[cargo]: match_arm
             SectionType::Cargo => {
-                if let Some(cargo_config) = &config.cargo {
-                    if cargo_config.packages.is_empty() {
-                        continue;
-                    }
-
-                    println!(
-                        "{}",
-                        format!("🦀 Installing cargo packages...")
-                            .bright_cyan()
-                            .bold()
-                    );
-
-                    // Auto-install rust if cargo not found
-                    if !crate::utils::command_exists("cargo") {
-                        // Check if rustup exists first
-                        if crate::utils::command_exists("rustup") {
-                            println!("  ⚠️  cargo not found, installing via rustup...");
-
-                            if !dry_run {
-                                match Command::new("rustup")
-                                    .args(["toolchain", "install", "stable"])
-                                    .status()
-                                {
-                                    Ok(status) if status.success() => {
-                                        println!("  ✓ {} installed", "rust".green());
-                                    }
-                                    _ => {
-                                        println!("  ❌ Failed to install rust via rustup");
-
-                                        for pkg in &cargo_config.packages {
-                                            errors.package_failures.push(PackageFailure {
-                                                package: pkg.clone(),
-                                                manager: "cargo".to_string(),
-                                                reason: "rust installation via rustup failed"
-                                                    .to_string(),
-                                            });
-                                        }
-
-                                        if fail_fast {
-                                            bail!("Failed to install rust via rustup");
-                                        }
-
-                                        println!();
-                                        continue;
-                                    }
-                                }
-                            }
-                        } else {
-                            println!(
-                                "  ⚠️  {} not found, installing {} via brew...",
-                                "cargo".yellow(),
-                                "rust".cyan()
-                            );
-
-                            if dry_run {
-                                println!("    → Would run: brew install rust");
-                            } else {
-                                match install_runtime_via_brew("rust") {
-                                    Ok(_) => {
-                                        println!("  ✓ {} installed", "rust".green());
-                                    }
-                                    Err(e) => {
-                                        println!("  ❌ Failed to install rust: {}", e);
-
-                                        for pkg in &cargo_config.packages {
-                                            errors.package_failures.push(PackageFailure {
-                                                package: pkg.clone(),
-                                                manager: "cargo".to_string(),
-                                                reason: format!("rust installation failed: {}", e),
-                                            });
-                                        }
-
-                                        if fail_fast {
-                                            bail!("Failed to install rust");
-                                        }
-
-                                        println!();
-                                        continue;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if dry_run {
-                        println!("  Packages: {:?}", cargo_config.packages);
-                    } else {
-                        let cargo_mgr = CargoManager::new(max_parallel);
-                        match cargo_mgr.install_packages(&cargo_config.packages) {
-                            Ok(result) => {
-                                print_result("Cargo packages", &result);
-
-                                // Track failures
-                                for (pkg, reason) in &result.failed {
-                                    errors.package_failures.push(PackageFailure {
-                                        package: pkg.clone(),
-                                        manager: "cargo".to_string(),
-                                        reason: reason.clone(),
-                                    });
-                                }
-                            }
-                            Err(e) => {
-                                println!("  ❌ cargo installation failed: {}", e);
-
-                                if fail_fast {
-                                    bail!("cargo installation failed");
-                                }
-                            }
-                        }
-                    }
-
-                    println!();
-                }
+                apply_cargo_phase(config, dry_run, max_parallel, fail_fast, &mut errors)?;
             }
+            // CODEGEN_END[cargo]: match_arm
 
+            
+            // CODEGEN_MARKER: insert_section_match_arm_here
             SectionType::System => {
                 // Skip system settings unless explicitly requested
                 if !with_system_settings {

@@ -1,6 +1,13 @@
 use crate::config::{find_config_file, load_config};
 use crate::managers::{
-    brew::BrewManager, cargo_manager::CargoManager, mas::MasManager, npm::NpmManager, Manager,
+    brew::BrewManager,
+    cargo_manager::CargoManager, // CODEGEN[cargo]: import
+    mas::MasManager, // CODEGEN[mas]: import
+    npm::NpmManager, // CODEGEN[npm]: import
+    // CODEGEN_MARKER: insert_manager_import_here
+    Manager,
+    ManagerMetadata,
+    PACKAGE_MANAGERS,
 };
 use anyhow::{Context, Result};
 use colored::Colorize;
@@ -33,18 +40,46 @@ pub fn run(
     // Determine max_parallel
     let max_parallel = config.settings.max_parallel;
 
-    // Get manager instance
-    let mgr: Box<dyn Manager> = match manager {
-        "brew" => Box::new(BrewManager::new(max_parallel)),
-        "cask" => Box::new(BrewManager::new(max_parallel)),
-        "mas" => Box::new(MasManager::new(max_parallel)),
-        "npm" => Box::new(NpmManager::new(max_parallel)),
-        "cargo" => Box::new(CargoManager::new(max_parallel)),
-        _ => anyhow::bail!(
-            "Unknown manager: {}. Valid: brew, cask, mas, npm, cargo",
-            manager
-        ),
-    };
+    // Get manager instance - check registry first, then special cases
+    let mgr: Box<dyn Manager> =
+        if let Some(meta) = ManagerMetadata::get_by_name(manager) {
+            // Dynamic manager from registry
+            match meta.name {
+                // CODEGEN_START[mas]: match_arm
+                "mas" => Box::new(MasManager::new(max_parallel)),
+                // CODEGEN_END[mas]: match_arm
+                // CODEGEN_START[npm]: match_arm
+                "npm" => Box::new(NpmManager::new(max_parallel)),
+                // CODEGEN_END[npm]: match_arm
+                // CODEGEN_START[cargo]: match_arm
+                "cargo" => Box::new(CargoManager::new(max_parallel)),
+                // CODEGEN_END[cargo]: match_arm
+                // CODEGEN_MARKER: insert_manager_match_arm_here
+                _ => {
+                    anyhow::bail!(
+                "Manager '{}' found in registry but not implemented in 'macup add' command.\n\
+                 Use 'macup apply' instead, or add {}Manager to src/commands/add.rs",
+                manager,
+                manager.chars().next().unwrap().to_uppercase().collect::<String>() + &manager[1..]
+            )
+                }
+            }
+        } else {
+            // Special cases not in registry
+            match manager {
+                "brew" => Box::new(BrewManager::new(max_parallel)),
+                "cask" => Box::new(BrewManager::new(max_parallel)),
+                _ => {
+                    // Show available managers from registry
+                    let available: Vec<_> = PACKAGE_MANAGERS.iter().map(|m| m.name).collect();
+                    anyhow::bail!(
+                        "Unknown manager: '{}'. Valid: brew, cask, {}",
+                        manager,
+                        available.join(", ")
+                    )
+                }
+            }
+        };
 
     // Check if manager is installed
     if !mgr.is_installed() {
@@ -119,17 +154,24 @@ fn update_config_file(path: &Path, manager: &str, packages: &[String]) -> Result
         .parse::<DocumentMut>()
         .context("Failed to parse TOML")?;
 
-    // Determine section and key
-    let (section, key) = match manager {
-        "brew" => ("brew", "formulae"),
-        "cask" => ("brew", "casks"),
-        "npm" => ("npm", "global"),
-        "cargo" => ("cargo", "packages"),
-        "mas" => {
-            // Special case: mas needs ID format
-            anyhow::bail!("Adding mas apps via CLI not yet supported. Edit config manually.");
+    // Determine section and key - check registry first
+    let (section, key) = if let Some(meta) = ManagerMetadata::get_by_name(manager) {
+        // Dynamic manager from registry - most use "packages" key
+        match meta.name {
+            "mas" => {
+                // Special case: mas needs ID format
+                anyhow::bail!("Adding mas apps via CLI not yet supported. Edit config manually.");
+            }
+            "npm" => ("npm", "global"), // npm uses "global" instead of "packages"
+            _ => (meta.name, "packages"), // Default: use manager name as section, "packages" as key
         }
-        _ => anyhow::bail!("Unknown manager: {}", manager),
+    } else {
+        // Special cases not in registry
+        match manager {
+            "brew" => ("brew", "formulae"),
+            "cask" => ("brew", "casks"),
+            _ => anyhow::bail!("Unknown manager: {}", manager),
+        }
     };
 
     // Get or create section

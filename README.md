@@ -6,15 +6,16 @@ A thin orchestrator for Mac bootstrap and setup. Declaratively configure your ma
 
 - 🍺 **Homebrew**: Install formulae, casks, and taps
 - 📱 **Mac App Store**: Install apps via mas-cli
-- 📦 **Package Managers**: Support for npm, cargo
+- 📦 **Package Managers**: Support for npm, cargo, pip, gem
 - 🔧 **Custom Scripts**: Run curl installers (rustup, oh-my-zsh, etc.)
 - ⚙️ **System Settings**: Apply macOS defaults and configurations
 - 🚀 **Parallel Installation**: Install packages concurrently for speed
 - ✅ **Idempotent**: Safe to run multiple times, only installs what's missing
 - 🎯 **Dependency Resolution**: Automatic execution order based on dependencies
 - ➕ **Easy Adding**: `macup add npm pnpm` to install and save to config
-- 🤖 **Auto-Install**: Automatically installs required managers and runtimes (Homebrew, mas-cli, Node.js, Rust)
+- 🤖 **Auto-Install**: Automatically installs required managers and runtimes (Homebrew, mas-cli, Node.js, Rust, Python, Ruby)
 - 🔄 **Error Recovery**: Continue on failures and retry with idempotent re-runs
+- 🔌 **Extensible**: Easily add new package managers with code generation
 
 ## Quick Start
 
@@ -93,6 +94,8 @@ macup add brew ripgrep bat eza
 macup add cask ghostty arc
 macup add npm pnpm typescript
 macup add cargo tokei sd
+macup add pip requests flask
+macup add gem bundler rails
 
 # Only add to config, skip install
 macup add npm eslint --no-install
@@ -102,6 +105,8 @@ When you use `macup add`:
 1. Packages are installed first
 2. Only successfully installed packages are saved to config
 3. Config file is updated automatically
+
+**Supported managers**: `brew`, `cask`, `mas`, `npm`, `cargo`, `pip`, `gem`
 
 ### Check differences (future)
 
@@ -129,6 +134,8 @@ macup apply --config /path/to/config.toml
 - `[mas]` section with apps → auto-installs mas-cli if missing  
 - `[npm]` section with packages → auto-installs Node.js if missing
 - `[cargo]` section with packages → auto-installs Rust if missing
+- `[pip]` section with packages → auto-installs Python if missing
+- `[gem]` section with packages → auto-installs Ruby if missing
 
 **You don't need to declare managers explicitly!** Just add the packages you want.
 
@@ -180,11 +187,19 @@ apps = [
 
 [npm]
 # Node.js will be auto-installed via brew if needed
-global = ["pnpm", "typescript"]
+packages = ["pnpm", "typescript", "eslint"]
 
 [cargo]
 # Rust will be auto-installed via brew if needed
-packages = ["ripgrep", "bat"]
+packages = ["ripgrep", "bat", "fd-find"]
+
+[pip]
+# Python will be auto-installed via brew if needed
+packages = ["requests", "flask", "black"]
+
+[gem]
+# Ruby will be auto-installed via brew if needed
+packages = ["bundler", "rails", "jekyll"]
 
 [[install.scripts]]
 name = "oh-my-zsh"
@@ -232,11 +247,19 @@ mas search Xcode
 
 #### `[npm]`
 Requires Node.js (auto-installed via brew if needed)
-- `global`: Global npm packages
+- `packages`: npm global packages
 
 #### `[cargo]`
 Requires Rust (auto-installed via brew if needed, or uses existing rustup)
 - `packages`: Cargo packages
+
+#### `[pip]`
+Requires Python (auto-installed via brew if needed, or uses system Python)
+- `packages`: Python packages (installed with pip)
+
+#### `[gem]`
+Requires Ruby (auto-installed via brew if needed, or uses system Ruby)
+- `packages`: Ruby gems
 
 #### `[[install.scripts]]`
 For custom curl installers:
@@ -262,6 +285,8 @@ For custom curl installers:
    - Mas: Auto-install mas-cli if needed, then install apps
    - Npm: Auto-install Node.js if needed, then install packages
    - Cargo: Auto-install Rust if needed, then install packages
+   - Pip: Auto-install Python if needed, then install packages
+   - Gem: Auto-install Ruby if needed, then install packages
 5. **Run Install Scripts**: Sequential, with idempotency checks
 6. **Apply System Settings** (optional): Execute commands sequentially
    - Only runs with `--with-system-settings` flag
@@ -274,6 +299,8 @@ macup checks before installing:
 - **mas**: `mas list`
 - **npm**: `npm list -g`
 - **cargo**: `cargo install --list`
+- **pip**: `pip list`
+- **gem**: `gem list`
 - **Install scripts**: Custom `check` command
 
 Already-installed packages are skipped automatically.
@@ -347,6 +374,174 @@ macup apply system  # Only apply system settings
 ```bash
 macup apply --config ~/.config/my-mac-setup.toml
 ```
+
+## Developer Guide
+
+### Adding New Package Managers
+
+macup makes it easy to add support for new package managers using code generation. All the boilerplate is generated automatically!
+
+#### Quick Start: Add a New Manager
+
+```bash
+# Create a new package manager
+./macup new manager <name> \
+  --display "Display Name" \
+  --icon "🎨" \
+  --runtime-cmd "command-name" \
+  --runtime-name "Runtime Name" \
+  --brew-formula "brew-formula-name"
+
+# Example: Add support for pipx (Python CLI tools)
+./macup new manager pipx \
+  --display "Python CLI Apps" \
+  --icon "🐍" \
+  --runtime-cmd "pipx" \
+  --runtime-name "pipx" \
+  --brew-formula "pipx"
+```
+
+This generates:
+- ✅ Manager implementation template in `src/managers/<name>.rs`
+- ✅ Config schema (TOML section support)
+- ✅ Registry entry with metadata
+- ✅ Integration with `macup add` command
+- ✅ Handler function for installation
+- ✅ All required boilerplate code
+
+#### What Gets Generated
+
+After running `macup new manager pipx`, you'll have:
+
+1. **Manager Implementation** (`src/managers/pipx.rs`):
+   ```rust
+   pub struct PipxManager {
+       max_parallel: usize,
+   }
+   
+   impl Manager for PipxManager {
+       fn name(&self) -> &str { "pipx" }
+       fn install_packages(&self, packages: &[String]) -> Result<InstallResult> {
+           // TODO: Implement your installation logic
+       }
+       // ... other methods with TODOs
+   }
+   ```
+
+2. **Config Support** - Users can now add to `macup.toml`:
+   ```toml
+   [pipx]
+   packages = ["poetry", "black", "ruff"]
+   ```
+
+3. **CLI Integration** - `macup add` now supports your manager:
+   ```bash
+   macup add pipx poetry black ruff
+   ```
+
+4. **Auto-Installation** - Runtime auto-installs via Homebrew if missing
+
+#### Implementation Steps
+
+1. **Generate the manager**:
+   ```bash
+   ./macup new manager pipx --display "Python CLI Apps" \
+     --icon "🐍" --runtime-cmd "pipx" --runtime-name "pipx" \
+     --brew-formula "pipx"
+   ```
+
+2. **Implement the Manager trait** in `src/managers/pipx.rs`:
+   - `list_installed()` - Query currently installed packages
+   - `is_package_installed()` - Check if a specific package exists
+   - `install_package()` - Install a single package
+   - `install_packages()` - Already implemented with parallel support
+
+3. **Build and test**:
+   ```bash
+   cargo build
+   ./macup add pipx poetry
+   ./macup apply
+   ```
+
+4. **Commit your changes**:
+   ```bash
+   git add .
+   git commit -m "Add pipx package manager support"
+   ```
+
+#### Example: Implementing list_installed()
+
+```rust
+fn list_installed(&self) -> Result<HashSet<String>> {
+    let output = Command::new("pipx")
+        .args(&["list", "--short"])
+        .output()
+        .context("Failed to list pipx packages")?;
+
+    if !output.status.success() {
+        anyhow::bail!("Failed to list pipx packages");
+    }
+
+    let installed = String::from_utf8(output.stdout)?
+        .lines()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+    
+    Ok(installed)
+}
+```
+
+#### Removing a Manager
+
+If you need to remove a manager:
+
+```bash
+./macup remove manager <name>
+
+# Example
+./macup remove manager pipx
+```
+
+This removes all generated code:
+- ✅ Manager implementation file
+- ✅ Config schema entries
+- ✅ Registry entry
+- ✅ CLI integration
+- ✅ All boilerplate code
+
+The project will still compile after removal!
+
+#### Manager Requirements
+
+For a package manager to work with macup, implement:
+
+1. **Check if installed**: `is_installed()` - Check if the manager's CLI exists
+2. **List packages**: `list_installed()` - Get currently installed packages
+3. **Install package**: `install_package()` - Install a single package
+4. **Check single package**: `is_package_installed()` - Verify if specific package is installed
+
+The parallel installation logic is handled automatically by the base implementation.
+
+#### Code Generation Architecture
+
+macup uses a marker-based code generation system:
+
+- **CODEGEN_MARKER** comments mark insertion points
+- **CODEGEN_START/END** pairs wrap generated code
+- `macup new manager` inserts code at markers
+- `macup remove manager` removes code between START/END pairs
+- Indent-aware generation preserves code formatting
+
+Example markers:
+```rust
+// CODEGEN_START[pipx]: manager_metadata
+ManagerMetadata { ... },
+// CODEGEN_END[pipx]: manager_metadata
+// CODEGEN_MARKER: insert_manager_metadata_here
+```
+
+This allows you to safely add/remove managers without manual code editing!
 
 ## Architecture
 
