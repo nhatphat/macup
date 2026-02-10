@@ -53,9 +53,6 @@ impl Default for Settings {
 pub struct Managers {
     #[serde(default)]
     pub required: Vec<String>,
-
-    #[serde(default)]
-    pub optional: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -139,4 +136,45 @@ pub struct SystemConfig {
 
     #[serde(default)]
     pub commands: Vec<String>,
+}
+
+impl Config {
+    /// Auto-detect required managers from config sections
+    /// Returns managers that MUST be installed based on declared packages
+    pub fn detect_required_managers(&self) -> Vec<String> {
+        let mut managers = Vec::new();
+
+        // Check brew section - if has any packages, brew is required
+        if let Some(brew) = &self.brew {
+            if !brew.taps.is_empty() || !brew.formulae.is_empty() || !brew.casks.is_empty() {
+                managers.push("brew".to_string());
+            }
+        }
+
+        // Check mas section - if has apps, mas is required
+        if let Some(mas) = &self.mas {
+            if !mas.apps.is_empty() {
+                managers.push("mas".to_string());
+            }
+        }
+
+        // Note: npm and cargo auto-install their runtimes inline,
+        // so they don't need to be in the managers list
+
+        managers
+    }
+
+    /// Get final list of required managers (explicit + auto-detected)
+    pub fn get_required_managers(&self) -> Vec<String> {
+        let mut all = self.managers.required.clone();
+
+        // Add auto-detected managers if not already in list
+        for manager in self.detect_required_managers() {
+            if !all.contains(&manager) {
+                all.push(manager);
+            }
+        }
+
+        all
+    }
 }

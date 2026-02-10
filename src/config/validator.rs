@@ -81,17 +81,10 @@ fn has_cycle(
 fn validate_manager_names(config: &Config) -> Result<()> {
     let valid_managers = ["brew", "mas", "npm", "cargo"];
 
-    // Check required managers
+    // Check required managers (if explicitly declared)
     for manager in &config.managers.required {
         if !valid_managers.contains(&manager.as_str()) {
             anyhow::bail!("Unknown required manager: {}", manager);
-        }
-    }
-
-    // Check optional managers
-    for manager in &config.managers.optional {
-        if !valid_managers.contains(&manager.as_str()) {
-            anyhow::bail!("Unknown optional manager: {}", manager);
         }
     }
 

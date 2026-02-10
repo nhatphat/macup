@@ -13,7 +13,8 @@ A thin orchestrator for Mac bootstrap and setup. Declaratively configure your ma
 - ✅ **Idempotent**: Safe to run multiple times, only installs what's missing
 - 🎯 **Dependency Resolution**: Automatic execution order based on dependencies
 - ➕ **Easy Adding**: `macup add npm pnpm` to install and save to config
-- 🤖 **Auto-Install**: Automatically installs Homebrew and other required managers if missing
+- 🤖 **Auto-Install**: Automatically installs required managers and runtimes (Homebrew, mas-cli, Node.js, Rust)
+- 🔄 **Error Recovery**: Continue on failures and retry with idempotent re-runs
 
 ## Quick Start
 
@@ -117,35 +118,69 @@ Or specify custom location:
 macup apply --config /path/to/config.toml
 ```
 
+### Automatic Manager Detection
+
+**macup automatically detects which package managers you need** based on your config sections:
+
+- `[brew]` section with packages → auto-installs Homebrew if missing
+- `[mas]` section with apps → auto-installs mas-cli if missing  
+- `[npm]` section with packages → auto-installs Node.js if missing
+- `[cargo]` section with packages → auto-installs Rust if missing
+
+**You don't need to declare managers explicitly!** Just add the packages you want.
+
+### Error Recovery & Retrying
+
+macup continues on errors by default (`fail_fast = false`):
+
+- ✅ If one package fails, others continue installing
+- ✅ At the end, shows a summary of all failures
+- ✅ Run `macup apply` again after fixing issues
+- ✅ Already-installed packages are automatically skipped
+
+Example error recovery workflow:
+```bash
+# First run - mas installation fails, but npm/cargo continue
+$ macup apply
+⚠️  macup completed with errors
+  ❌ mas (manager installation failed)
+     Fix: Try 'brew install mas' manually
+
+# Fix the issue
+$ brew install mas
+
+# Re-run - picks up where it left off
+$ macup apply
+✓ macup apply completed!  # Only installs what was missing
+```
+
 ### Example Config
 
 ```toml
 [settings]
-fail_fast = false      # Continue on errors
+fail_fast = false      # Continue on errors (recommended)
 max_parallel = 4       # Max concurrent installs
 
-[managers]
-required = ["brew"]
-optional = ["mas"]
+# No [managers] section needed!
+# macup auto-detects from the sections below
 
 [brew]
-depends_on = []
 taps = ["homebrew/cask-fonts"]
 formulae = ["git", "neovim", "ripgrep", "fd"]
 casks = ["visual-studio-code", "iterm2"]
 
 [mas]
-depends_on = ["brew"]  # mas installed via brew
+# mas-cli will be auto-installed via brew if needed
 apps = [
     { name = "Xcode", id = 497799835 },
 ]
 
 [npm]
-depends_on = ["brew"]
+# Node.js will be auto-installed via brew if needed
 global = ["pnpm", "typescript"]
 
 [cargo]
-depends_on = ["brew"]
+# Rust will be auto-installed via brew if needed
 packages = ["ripgrep", "bat"]
 
 [[install.scripts]]
@@ -164,36 +199,52 @@ commands = [
 ### Config Sections
 
 #### `[settings]`
-- `fail_fast`: Stop on first error (default: false)
+- `fail_fast`: Stop on first error (default: false). Set to `true` to halt immediately on any failure.
 - `max_parallel`: Max concurrent package installs (default: 4)
 
-#### `[managers]`
-- `required`: Must be installed (errors if missing)
-- `optional`: Nice to have (skips if missing)
+#### `[managers]` (Optional)
+You typically **don't need this section** - macup auto-detects required managers from your package declarations.
+
+Only use this for explicit control:
+- `required`: Force these managers to be installed even if not auto-detected
 
 #### `[brew]`
-- `depends_on`: Dependencies (usually empty)
+- `depends_on`: Dependencies (usually empty or can be omitted)
 - `taps`: Homebrew taps to add
 - `formulae`: CLI tools
 - `casks`: GUI applications
 
 #### `[mas]`
-- `depends_on`: Usually `["brew"]` (mas-cli via Homebrew)
+Requires mas-cli (auto-installed via brew if needed)
 - `apps`: Array of `{name, id}` objects
 
-#### `[npm]` / `[cargo]`
-- `depends_on`: Usually `["brew"]`
-- `global` / `packages`: Package names
+**Finding app IDs:**
+```bash
+# Search for an app
+mas search Xcode
+
+# Copy the numeric ID
+497799835  Xcode (15.0.1)
+```
+
+#### `[npm]`
+Requires Node.js (auto-installed via brew if needed)
+- `global`: Global npm packages
+
+#### `[cargo]`
+Requires Rust (auto-installed via brew if needed, or uses existing rustup)
+- `packages`: Cargo packages
 
 #### `[[install.scripts]]`
 For custom curl installers:
 - `name`: Script identifier
-- `check`: Command to check if already installed
+- `check`: Command to check if already installed (optional)
 - `command`: Install command
-- `required`: If false, continues on error
+- `required`: If false, continues on error (default: true)
 
 #### `[system]`
 - `commands`: Array of shell commands (defaults, killall, etc.)
+- Executed sequentially after all packages are installed
 
 ## How It Works
 

@@ -2,12 +2,12 @@
 # This is your personal Mac setup configuration
 
 [settings]
-fail_fast = false      # Continue on errors
+fail_fast = false      # Continue on errors (recommended)
 max_parallel = 4       # Max concurrent package installs
 
-[managers]
-required = ["brew"]    # Must have these managers
-optional = ["mas"]     # Nice to have
+# NOTE: You don't need a [managers] section anymore!
+# macup automatically detects required managers from the sections below.
+# If you declare packages, macup will auto-install the necessary managers.
 
 # ============================================
 # Homebrew Packages
@@ -33,7 +33,6 @@ formulae = [
     "starship",
     "fzf",
     "chezmoi",     # For dotfiles management
-    "mas",         # Mac App Store CLI
 ]
 
 # GUI applications (casks)
@@ -49,7 +48,7 @@ casks = [
 # ============================================
 
 [mas]
-depends_on = ["brew"]  # mas-cli installed via brew
+depends_on = ["brew"]  # mas-cli will be auto-installed via brew if needed
 
 apps = [
     # { name = "Xcode", id = 497799835 },
@@ -61,7 +60,7 @@ apps = [
 # ============================================
 
 [npm]
-depends_on = ["brew"]  # Need node from brew
+depends_on = ["brew"]  # Node.js will be auto-installed via brew if needed
 
 global = [
     # "pnpm",
@@ -74,7 +73,7 @@ global = [
 # ============================================
 
 [cargo]
-depends_on = ["brew"]  # rust from brew (or standalone)
+depends_on = ["brew"]  # Rust will be auto-installed via brew if needed (or use rustup if available)
 
 packages = [
     # "ripgrep",
