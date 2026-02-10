@@ -9,8 +9,10 @@ pub struct ExecutionPlan {
 
 #[derive(Debug, Clone)]
 pub struct Phase {
+    #[allow(dead_code)]
     pub name: String,
     pub section_type: SectionType,
+    #[allow(dead_code)]
     pub depends_on: Vec<String>,
 }
 

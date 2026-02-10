@@ -251,12 +251,15 @@ For custom curl installers:
 ### Execution Flow
 
 1. **Parse & Validate Config**: Load TOML and check for dependency cycles
-2. **Pre-flight Checks**: Verify required managers are installed
+2. **Pre-flight Checks**: Verify Homebrew is installed (foundation requirement)
 3. **Build Execution Plan**: Topological sort based on `depends_on`
-4. **Install Managers**: Sequential (brew → mas → npm → cargo)
-5. **Install Packages**: Parallel within each manager
-6. **Run Install Scripts**: Sequential, with idempotency checks
-7. **Apply System Settings**: Execute commands sequentially
+4. **Install Packages by Section**: Each section installs its packages in parallel
+   - Brew: Install formulae/casks
+   - Mas: Auto-install mas-cli if needed, then install apps
+   - Npm: Auto-install Node.js if needed, then install packages
+   - Cargo: Auto-install Rust if needed, then install packages
+5. **Run Install Scripts**: Sequential, with idempotency checks
+6. **Apply System Settings**: Execute commands sequentially
 
 ### Idempotency
 
