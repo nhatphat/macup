@@ -1,0 +1,133 @@
+# macup configuration file
+# This is your personal Mac setup configuration
+
+[settings]
+fail_fast = false      # Continue on errors
+max_parallel = 4       # Max concurrent package installs
+
+[managers]
+required = ["brew"]    # Must have these managers
+optional = ["mas"]     # Nice to have
+
+# ============================================
+# Homebrew Packages
+# ============================================
+
+[brew]
+depends_on = []
+
+# Taps (third-party repositories)
+taps = [
+    "homebrew/cask-fonts",
+]
+
+# CLI tools (formulae)
+formulae = [
+    "git",
+    "neovim",
+    "ripgrep",
+    "fd",
+    "bat",
+    "eza",
+    "zoxide",
+    "starship",
+    "fzf",
+    "chezmoi",     # For dotfiles management
+    "mas",         # Mac App Store CLI
+]
+
+# GUI applications (casks)
+casks = [
+    "visual-studio-code",
+    "iterm2",
+    "arc",
+    "raycast",
+]
+
+# ============================================
+# Mac App Store Apps
+# ============================================
+
+[mas]
+depends_on = ["brew"]  # mas-cli installed via brew
+
+apps = [
+    # { name = "Xcode", id = 497799835 },
+    # { name = "1Password", id = 1333542190 },
+]
+
+# ============================================
+# NPM Global Packages
+# ============================================
+
+[npm]
+depends_on = ["brew"]  # Need node from brew
+
+global = [
+    # "pnpm",
+    # "typescript",
+    # "@biomejs/biome",
+]
+
+# ============================================
+# Cargo Packages
+# ============================================
+
+[cargo]
+depends_on = ["brew"]  # rust from brew (or standalone)
+
+packages = [
+    # "ripgrep",
+    # "bat",
+    # "eza",
+]
+
+# ============================================
+# Custom Install Scripts
+# ============================================
+
+[install]
+depends_on = []
+
+[[install.scripts]]
+name = "oh-my-zsh"
+check = "test -d ~/.oh-my-zsh"
+command = 'sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended'
+required = false
+
+# [[install.scripts]]
+# name = "nerd-font-jetbrains-mono"
+# check = "test -f ~/Library/Fonts/JetBrainsMonoNerdFont-Regular.ttf"
+# command = """
+# curl -fLo ~/Library/Fonts/JetBrainsMonoNerdFont-Regular.ttf --create-dirs \
+#   https://github.com/ryanoasis/nerd-fonts/raw/master/patched-fonts/JetBrainsMono/Ligatures/Regular/JetBrainsMonoNerdFont-Regular.ttf
+# """
+# required = false
+
+# ============================================
+# macOS System Settings
+# ============================================
+
+[system]
+depends_on = []
+
+commands = [
+    # Dock settings
+    "defaults write com.apple.dock autohide -bool true",
+    "defaults write com.apple.dock tilesize -int 48",
+    "defaults write com.apple.dock show-recents -bool false",
+    "killall Dock",
+    
+    # Finder settings
+    "defaults write NSGlobalDomain AppleShowAllExtensions -bool true",
+    "defaults write com.apple.finder ShowPathbar -bool true",
+    "defaults write com.apple.finder ShowStatusBar -bool true",
+    "killall Finder",
+    
+    # Screenshots location
+    # "defaults write com.apple.screencapture location ~/Pictures/Screenshots",
+    # "mkdir -p ~/Pictures/Screenshots",
+    
+    # Disable crash reporter
+    # "defaults write com.apple.CrashReporter DialogType -string 'none'",
+]
