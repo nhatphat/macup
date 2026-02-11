@@ -13,6 +13,7 @@ A thin orchestrator for Mac bootstrap and setup. Declaratively configure your ma
 - ✅ **Idempotent**: Safe to run multiple times, only installs what's missing
 - 🎯 **Dependency Resolution**: Automatic execution order based on dependencies
 - ➕ **Easy Adding**: `macup add npm pnpm` to install and save to config
+- 📥 **Import Existing Setup**: `macup import` to scan and import currently installed packages
 - 🤖 **Auto-Install**: Automatically installs required managers and runtimes (Homebrew, mas-cli, Node.js, Rust, Python, Ruby)
 - 🔄 **Error Recovery**: Continue on failures and retry with idempotent re-runs
 - 🔌 **Extensible**: Easily add new package managers with code generation
@@ -108,10 +109,74 @@ When you use `macup add`:
 
 **Supported managers**: `brew`, `cask`, `mas`, `npm`, `cargo`, `pip`, `gem`
 
-### Check differences (future)
+### Import existing packages
+
+Already have tools installed? Import them into your config:
+
+```bash
+macup import
+```
+
+This will:
+1. 🔍 Scan your system for installed packages (Homebrew, npm, cargo, MAS, pipx)
+2. ✅ Mark packages already in your config
+3. 🎯 Show interactive selection (use Space to toggle, Enter to confirm)
+4. 👀 Preview changes before writing
+5. 📝 Merge selected packages into your `macup.toml`
+
+**Example workflow:**
+```bash
+# You have tons of brew packages installed
+# Import them to track in config
+macup import
+
+# Interactive UI shows:
+# 🍺 neovim
+# 🍺 ripgrep [existing]  ← Already in config
+# 📦 visual-studio-code
+# 🦀 cargo-edit
+# ...
+
+# Select packages with Space, confirm with Enter
+# Preview shows what will be added
+# Confirm and done!
+
+# Verify
+macup diff
+```
+
+**Supported managers:**
+- 🍺 Homebrew (formulae + casks)
+- 📦 npm global packages
+- 🦀 Cargo packages
+- 📱 Mac App Store apps (with IDs)
+- 🐍 pipx packages
+
+### Check differences
 
 ```bash
 macup diff    # Show what's missing or changed
+```
+
+Shows installed vs missing packages for all configured managers:
+
+```
+🍺 Homebrew Formulae
+  ✓ git
+  ✓ neovim
+  ❌ ripgrep      ← Not installed yet
+  Summary: 2/3
+
+📦 Homebrew Casks
+  ✓ visual-studio-code
+  ❌ iterm2       ← Not installed yet
+  Summary: 1/2
+
+Overall Summary
+  ✓ Installed: 3
+  ❌ Missing: 2
+
+Run 'macup apply' to install missing packages.
 ```
 
 ## Configuration
