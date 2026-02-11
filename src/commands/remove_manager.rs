@@ -73,6 +73,12 @@ pub fn run(name: &str) -> Result<()> {
     println!("   {} {}", "✓".green(), "src/commands/add.rs".dimmed());
     println!();
 
+    // Step 8: Remove from diff.rs
+    println!("{} Removing from 'macup diff' command...", "8.".bold());
+    remove_from_diff_command(name, &name_capitalized)?;
+    println!("   {} {}", "✓".green(), "src/commands/diff.rs".dimmed());
+    println!();
+
     println!("{}", "=".repeat(60).bright_green());
     println!(
         "{}",
@@ -155,6 +161,93 @@ fn remove_from_add_command(name: &str, name_cap: &str) -> Result<()> {
     final_content.push_str(&updated_content[match_end_pos..]);
 
     fs::write(add_path, final_content).context("Failed to write add.rs")?;
+
+    Ok(())
+}
+
+fn remove_from_diff_command(name: &str, name_cap: &str) -> Result<()> {
+    let diff_path = Path::new("src/commands/diff.rs");
+    let content = fs::read_to_string(diff_path).context("Failed to read diff.rs")?;
+
+    // 1. Remove config import from line 1
+    // Pattern: ", TestpkgConfig" in the config import
+    let config_import_pattern = format!(", {}Config", name_cap);
+    let updated_content = content.replace(&config_import_pattern, "");
+
+    // 2. Remove manager import using inline marker
+    let import_pattern1 = format!(
+        "    {}::{}Manager,     // CODEGEN[{}]: import\n",
+        name, name_cap, name
+    );
+    let import_pattern2 = format!(
+        "    {}::{}Manager, // CODEGEN[{}]: import\n",
+        name, name_cap, name
+    );
+    let import_pattern3 = format!("    {}::{}Manager,\n", name, name_cap);
+
+    let updated_content = if updated_content.contains(&import_pattern1) {
+        updated_content.replace(&import_pattern1, "")
+    } else if updated_content.contains(&import_pattern2) {
+        updated_content.replace(&import_pattern2, "")
+    } else {
+        updated_content.replace(&import_pattern3, "")
+    };
+
+    // 3. Remove check function call using pair markers
+    let call_start = format!("    // CODEGEN_START[{}]: check_call", name);
+    let call_end = format!("    // CODEGEN_END[{}]: check_call", name);
+
+    let call_start_pos = updated_content.find(&call_start).ok_or_else(|| {
+        anyhow::anyhow!(
+            "Could not find CODEGEN_START[{}]: check_call marker in diff.rs",
+            name
+        )
+    })?;
+
+    let after_call_start = &updated_content[call_start_pos..];
+    let call_end_offset = after_call_start.find(&call_end).ok_or_else(|| {
+        anyhow::anyhow!(
+            "Could not find CODEGEN_END[{}]: check_call marker in diff.rs",
+            name
+        )
+    })?;
+
+    // Include the END marker and newlines
+    let call_end_pos = call_start_pos + call_end_offset + call_end.len() + 1; // +1 for newline
+
+    // Remove check call block
+    let mut updated_content2 = String::new();
+    updated_content2.push_str(&updated_content[..call_start_pos]);
+    updated_content2.push_str(&updated_content[call_end_pos..]);
+
+    // 4. Remove check function using pair markers
+    let fn_start = format!("// CODEGEN_START[{}]: check_function", name);
+    let fn_end = format!("// CODEGEN_END[{}]: check_function", name);
+
+    let fn_start_pos = updated_content2.find(&fn_start).ok_or_else(|| {
+        anyhow::anyhow!(
+            "Could not find CODEGEN_START[{}]: check_function marker in diff.rs",
+            name
+        )
+    })?;
+
+    let after_fn_start = &updated_content2[fn_start_pos..];
+    let fn_end_offset = after_fn_start.find(&fn_end).ok_or_else(|| {
+        anyhow::anyhow!(
+            "Could not find CODEGEN_END[{}]: check_function marker in diff.rs",
+            name
+        )
+    })?;
+
+    // Include the END marker and newlines
+    let fn_end_pos = fn_start_pos + fn_end_offset + fn_end.len() + 1; // +1 for newline
+
+    // Remove function block
+    let mut final_content = String::new();
+    final_content.push_str(&updated_content2[..fn_start_pos]);
+    final_content.push_str(&updated_content2[fn_end_pos..]);
+
+    fs::write(diff_path, final_content).context("Failed to write diff.rs")?;
 
     Ok(())
 }

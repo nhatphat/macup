@@ -80,6 +80,12 @@ pub fn run(
     println!("   {} {}", "✓".green(), "src/commands/add.rs".dimmed());
     println!();
 
+    // Step 8: Update diff.rs for 'macup diff' support
+    println!("{} Adding 'macup diff' command support...", "8.".bold());
+    add_to_diff_command(name, &name_capitalized)?;
+    println!("   {} {}", "✓".green(), "src/commands/diff.rs".dimmed());
+    println!();
+
     println!("{}", "=".repeat(60).bright_green());
     println!(
         "{}",
@@ -717,4 +723,147 @@ fn update_managers_mod(name: &str) -> Result<()> {
     fs::write(mod_path, updated_content).context("Failed to write managers/mod.rs")?;
 
     Ok(())
+}
+
+fn add_to_diff_command(name: &str, name_cap: &str) -> Result<()> {
+    let diff_path = Path::new("src/commands/diff.rs");
+    let content = fs::read_to_string(diff_path).context("Failed to read diff.rs")?;
+
+    // 1. Add config import at the top
+    let config_import_pattern = "use crate::config::{load_config_auto,";
+    if !content.contains(config_import_pattern) {
+        anyhow::bail!("Could not find config import in diff.rs");
+    }
+
+    // Find the end of config imports line (after the closing })
+    let config_line_start = content.find(config_import_pattern).unwrap();
+    let after_import_start = &content[config_line_start..];
+    let closing_brace_pos = after_import_start.find("};").unwrap();
+    let insert_pos = config_line_start + closing_brace_pos;
+
+    // Insert new config import before the closing }
+    let mut updated_content = String::new();
+    updated_content.push_str(&content[..insert_pos]);
+    updated_content.push_str(&format!(", {}Config", name_cap));
+    updated_content.push_str(&content[insert_pos..]);
+
+    // 2. Add import for manager
+    let import_marker = "// CODEGEN_MARKER: insert_import_here";
+    if !updated_content.contains(import_marker) {
+        anyhow::bail!("Could not find CODEGEN_MARKER: insert_import_here in diff.rs");
+    }
+
+    let import_indent = extract_indent(&updated_content, import_marker);
+    let new_import = format!(
+        "{}{}::{}Manager, // CODEGEN[{}]: import\n{}{}",
+        import_indent, name, name_cap, name, import_indent, import_marker
+    );
+    updated_content =
+        updated_content.replace(&format!("{}{}", import_indent, import_marker), &new_import);
+
+    // 3. Add check function call
+    let call_marker = "// CODEGEN_MARKER: insert_check_call_here";
+    if !updated_content.contains(call_marker) {
+        anyhow::bail!("Could not find CODEGEN_MARKER: insert_check_call_here in diff.rs");
+    }
+
+    let call_indent = extract_indent(&updated_content, call_marker);
+    let new_call = vec![
+        format!("{}// CODEGEN_START[{}]: check_call", call_indent, name),
+        format!(
+            "{}if let Some({}_config) = &config.{} {{",
+            call_indent, name, name
+        ),
+        format!(
+            "{}    if let Some(result) = check_{}_section({}_config) {{",
+            call_indent, name, name
+        ),
+        format!("{}        results.push(result);", call_indent),
+        format!("{}    }}", call_indent),
+        format!("{}}}", call_indent),
+        format!("{}// CODEGEN_END[{}]: check_call", call_indent, name),
+        format!(""),
+        format!("{}{}", call_indent, call_marker),
+    ]
+    .join("\n");
+
+    updated_content =
+        updated_content.replace(&format!("{}{}", call_indent, call_marker), &new_call);
+
+    // 3. Add check function implementation
+    let func_marker = "// CODEGEN_MARKER: insert_check_function_here";
+    if !updated_content.contains(func_marker) {
+        anyhow::bail!("Could not find CODEGEN_MARKER: insert_check_function_here in diff.rs");
+    }
+
+    let func_indent = extract_indent(&updated_content, func_marker);
+    let check_function = generate_diff_check_function(name, name_cap, &func_indent);
+    updated_content =
+        updated_content.replace(&format!("{}{}", func_indent, func_marker), &check_function);
+
+    fs::write(diff_path, updated_content).context("Failed to write diff.rs")?;
+
+    Ok(())
+}
+
+fn generate_diff_check_function(name: &str, name_cap: &str, i: &str) -> String {
+    vec![
+        format!("{}// CODEGEN_START[{}]: check_function", i, name),
+        format!("{}/// Check {} packages", i, name_cap),
+        format!("{}fn check_{}_section(config: &{}Config) -> Option<DiffResult> {{", i, name, name_cap),
+        format!("{}    if config.packages.is_empty() {{", i),
+        format!("{}        return None;", i),
+        format!("{}    }}", i),
+        format!(""),
+        format!("{}    let meta = ManagerMetadata::get_by_name(\"{}\").unwrap();", i, name),
+        format!(""),
+        format!("{}    // Check if runtime is installed", i),
+        format!("{}    if !crate::utils::command_exists(meta.runtime_command) {{", i),
+        format!("{}        return Some(DiffResult {{", i),
+        format!("{}            manager_name: meta.name.to_string(),", i),
+        format!("{}            icon: meta.icon.to_string(),", i),
+        format!("{}            display_name: meta.display_name.to_string(),", i),
+        format!("{}            installed: vec![],", i),
+        format!("{}            missing: vec![],", i),
+        format!("{}            skipped_reason: Some(format!(\"{{}} not installed\", meta.runtime_command)),", i),
+        format!("{}        }});", i),
+        format!("{}    }}", i),
+        format!(""),
+        format!("{}    // Check each package in parallel", i),
+        format!("{}    let mgr = {}Manager::new(1);", i, name_cap),
+        format!("{}    let pkg_results: Vec<_> = config", i),
+        format!("{}        .packages", i),
+        format!("{}        .par_iter()", i),
+        format!("{}        .map(|pkg| {{", i),
+        format!("{}            // Parse package:binary format - show only package name", i),
+        format!("{}            let (pkg_name, _) = parse_package_name(pkg);", i),
+        format!("{}            let is_installed = mgr.is_package_installed(pkg).unwrap_or(false);", i),
+        format!("{}            (pkg_name.to_string(), is_installed)", i),
+        format!("{}        }})", i),
+        format!("{}        .collect();", i),
+        format!(""),
+        format!("{}    let mut installed = vec![];", i),
+        format!("{}    let mut missing = vec![];", i),
+        format!(""),
+        format!("{}    for (pkg, is_installed) in pkg_results {{", i),
+        format!("{}        if is_installed {{", i),
+        format!("{}            installed.push(pkg);", i),
+        format!("{}        }} else {{", i),
+        format!("{}            missing.push(pkg);", i),
+        format!("{}        }}", i),
+        format!("{}    }}", i),
+        format!(""),
+        format!("{}    Some(DiffResult {{", i),
+        format!("{}        manager_name: meta.name.to_string(),", i),
+        format!("{}        icon: meta.icon.to_string(),", i),
+        format!("{}        display_name: meta.display_name.to_string(),", i),
+        format!("{}        installed,", i),
+        format!("{}        missing,", i),
+        format!("{}        skipped_reason: None,", i),
+        format!("{}    }})", i),
+        format!("{}}}", i),
+        format!("{}// CODEGEN_END[{}]: check_function", i, name),
+        format!(""),
+        format!("{}// CODEGEN_MARKER: insert_check_function_here", i),
+    ].join("\n")
 }
