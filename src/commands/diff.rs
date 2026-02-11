@@ -78,10 +78,6 @@ pub fn run(config_path: Option<&Path>) -> Result<()> {
     }
     // CODEGEN_END[cargo]: check_call
 
-
-
-
-
     // CODEGEN_MARKER: insert_check_call_here
 
     // Calculate summary
@@ -443,10 +439,6 @@ fn check_cargo_section(config: &CargoConfig) -> Option<DiffResult> {
     })
 }
 // CODEGEN_END[cargo]: check_function
-
-
-
-
 
 // CODEGEN_MARKER: insert_check_function_here
 

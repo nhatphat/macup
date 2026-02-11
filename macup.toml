@@ -32,7 +32,7 @@ formulae = [
     "zoxide",
     "starship",
     "fzf",
-    "chezmoi",     # For dotfiles management
+    "chezmoi", "aws-vault", "awscli", "btop",     # For dotfiles management
 ]
 
 # GUI applications (casks)

@@ -37,6 +37,9 @@ pub enum Command {
     /// Show difference between config and current state
     Diff,
 
+    /// Import packages from current system
+    Import,
+
     /// Add package(s) to config and install
     Add {
         /// Manager type: brew, cask, mas, npm, cargo, gem, pipx, npx

@@ -379,7 +379,6 @@ fn apply_cargo_phase(
 }
 // CODEGEN_END[cargo]: handler_function
 
-
 // CODEGEN_MARKER: insert_handler_function_here
 
 pub fn apply_plan(
@@ -551,7 +550,6 @@ pub fn apply_plan(
             }
             // CODEGEN_END[cargo]: match_arm
 
-            
             // CODEGEN_MARKER: insert_section_match_arm_here
             SectionType::System => {
                 // Skip system settings unless explicitly requested

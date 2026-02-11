@@ -34,14 +34,6 @@ pub struct Config {
     pub cargo: Option<CargoConfig>,
     // CODEGEN_END[cargo]: config_field
 
-
-
-
-
-
-
-
-
     // CODEGEN_MARKER: insert_config_field_here
     #[serde(default)]
     pub install: Option<InstallConfig>,
@@ -155,14 +147,6 @@ impl PackageManagerSection for CargoConfig {
     }
 }
 // CODEGEN_END[cargo]: config_struct
-
-
-
-
-
-
-
-
 
 // CODEGEN_MARKER: insert_config_struct_here
 

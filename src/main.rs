@@ -39,6 +39,9 @@ fn main() -> Result<()> {
         Command::Diff => {
             commands::diff::run(cli.config.as_deref())?;
         }
+        Command::Import => {
+            commands::import::run(cli.config.as_deref())?;
+        }
         Command::Add {
             manager,
             packages,
