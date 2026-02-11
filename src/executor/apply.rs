@@ -13,6 +13,7 @@ use crate::managers::{
 use crate::system::SystemManager;
 use anyhow::{bail, Context, Result};
 use colored::Colorize;
+use rayon::prelude::*;
 use std::collections::HashSet;
 use std::path::Path;
 use std::process::Command;
@@ -117,18 +118,32 @@ fn apply_mas_phase(
         }
     }
 
-    // Install apps
+    // Install apps - check missing first
+    let mas = MasManager::new(max_parallel);
+
+    // Filter missing apps in parallel
+    let missing_apps: Vec<_> = mas_config
+        .apps
+        .par_iter()
+        .filter(|app| {
+            !mas.is_package_installed(&app.id.to_string())
+                .unwrap_or(false)
+        })
+        .collect();
+
+    if missing_apps.is_empty() {
+        println!("  ✓ All apps already installed");
+        println!();
+        return Ok(());
+    }
+
     if dry_run {
-        for app in &mas_config.apps {
-            println!("  → Would install: {} ({})", app.name, app.id);
+        println!("  Apps ({} to install):", missing_apps.len());
+        for app in &missing_apps {
+            println!("    → {} ({})", app.name, app.id);
         }
     } else {
-        let mas = MasManager::new(max_parallel);
-        let app_ids: Vec<String> = mas_config
-            .apps
-            .iter()
-            .map(|app| app.id.to_string())
-            .collect();
+        let app_ids: Vec<String> = missing_apps.iter().map(|app| app.id.to_string()).collect();
 
         match mas.install_packages(&app_ids) {
             Ok(result) => {
@@ -219,12 +234,30 @@ fn apply_npm_phase(
         }
     }
 
-    // Install packages
+    // Install packages - check missing first
+    let npm = NpmManager::new(max_parallel);
+
+    // Filter missing packages in parallel
+    let missing_packages: Vec<_> = npm_config
+        .global
+        .par_iter()
+        .filter(|pkg| !npm.is_package_installed(pkg).unwrap_or(false))
+        .cloned()
+        .collect();
+
+    if missing_packages.is_empty() {
+        println!("  ✓ All packages already installed");
+        println!();
+        return Ok(());
+    }
+
     if dry_run {
-        println!("  Global packages: {:?}", npm_config.global);
+        println!("  Global packages ({} to install):", missing_packages.len());
+        for pkg in &missing_packages {
+            println!("    → {}", pkg);
+        }
     } else {
-        let npm = NpmManager::new(max_parallel);
-        match npm.install_packages(&npm_config.global) {
+        match npm.install_packages(&missing_packages) {
             Ok(result) => {
                 print_result("NPM packages", &result);
 
@@ -346,12 +379,30 @@ fn apply_cargo_phase(
         }
     }
 
-    // Install packages
+    // Install packages - check missing first
+    let cargo_mgr = CargoManager::new(max_parallel);
+
+    // Filter missing packages in parallel
+    let missing_packages: Vec<_> = cargo_config
+        .packages
+        .par_iter()
+        .filter(|pkg| !cargo_mgr.is_package_installed(pkg).unwrap_or(false))
+        .cloned()
+        .collect();
+
+    if missing_packages.is_empty() {
+        println!("  ✓ All packages already installed");
+        println!();
+        return Ok(());
+    }
+
     if dry_run {
-        println!("  Packages: {:?}", cargo_config.packages);
+        println!("  Packages ({} to install):", missing_packages.len());
+        for pkg in &missing_packages {
+            println!("    → {}", pkg);
+        }
     } else {
-        let cargo_mgr = CargoManager::new(max_parallel);
-        match cargo_mgr.install_packages(&cargo_config.packages) {
+        match cargo_mgr.install_packages(&missing_packages) {
             Ok(result) => {
                 print_result("Cargo packages", &result);
 
@@ -378,6 +429,7 @@ fn apply_cargo_phase(
     Ok(())
 }
 // CODEGEN_END[cargo]: handler_function
+
 
 // CODEGEN_MARKER: insert_handler_function_here
 
@@ -483,16 +535,33 @@ pub fn apply_plan(
                             .bold()
                     );
 
-                    if dry_run {
-                        for script in &install_config.scripts {
-                            println!("  → Would run: {}", script.name);
-                        }
-                    } else {
-                        let install_mgr = InstallManager::new();
-                        install_mgr.apply_scripts(&install_config.scripts)?;
-                    }
+                    let install_mgr = InstallManager::new();
 
-                    println!();
+                    // Filter missing scripts in parallel
+                    let missing_scripts: Vec<_> = install_config
+                        .scripts
+                        .par_iter()
+                        .filter(|script| !install_mgr.is_installed(script).unwrap_or(false))
+                        .collect();
+
+                    if missing_scripts.is_empty() {
+                        println!("  ✓ All scripts already installed");
+                        println!();
+                    } else {
+                        if dry_run {
+                            println!("  Scripts ({} to run):", missing_scripts.len());
+                            for script in &missing_scripts {
+                                println!("    → {}", script.name);
+                            }
+                            println!();
+                        } else {
+                            // Convert back to owned for apply_scripts
+                            let scripts_to_run: Vec<_> =
+                                missing_scripts.into_iter().cloned().collect();
+                            install_mgr.apply_scripts(&scripts_to_run)?;
+                            println!();
+                        }
+                    }
                 }
             }
 
@@ -505,26 +574,74 @@ pub fn apply_plan(
                             .bold()
                     );
 
-                    if dry_run {
-                        println!("  Taps: {:?}", brew_config.taps);
-                        println!("  Formulae: {:?}", brew_config.formulae);
-                        println!("  Casks: {:?}", brew_config.casks);
-                    } else {
-                        let brew = BrewManager::new(max_parallel);
+                    let brew = BrewManager::new(max_parallel);
 
-                        if !brew_config.taps.is_empty() {
-                            let result = brew.add_taps(&brew_config.taps)?;
-                            print_result("Taps", &result);
+                    // Check and install taps
+                    if !brew_config.taps.is_empty() {
+                        let installed_taps = brew.list_taps().unwrap_or_default();
+                        let missing_taps: Vec<_> = brew_config
+                            .taps
+                            .par_iter()
+                            .filter(|tap| !installed_taps.contains(*tap))
+                            .cloned()
+                            .collect();
+
+                        if !missing_taps.is_empty() {
+                            if dry_run {
+                                println!("  Taps ({} to add):", missing_taps.len());
+                                for tap in &missing_taps {
+                                    println!("    → {}", tap);
+                                }
+                            } else {
+                                let result = brew.add_taps(&missing_taps)?;
+                                print_result("Taps", &result);
+                            }
                         }
+                    }
 
-                        if !brew_config.formulae.is_empty() {
-                            let result = brew.install_formulae(&brew_config.formulae)?;
-                            print_result("Formulae", &result);
+                    // Check and install formulae
+                    if !brew_config.formulae.is_empty() {
+                        let installed_formulae = brew.list_formulae().unwrap_or_default();
+                        let missing_formulae: Vec<_> = brew_config
+                            .formulae
+                            .par_iter()
+                            .filter(|pkg| !installed_formulae.contains(*pkg))
+                            .cloned()
+                            .collect();
+
+                        if !missing_formulae.is_empty() {
+                            if dry_run {
+                                println!("  Formulae ({} to install):", missing_formulae.len());
+                                for pkg in &missing_formulae {
+                                    println!("    → {}", pkg);
+                                }
+                            } else {
+                                let result = brew.install_formulae(&missing_formulae)?;
+                                print_result("Formulae", &result);
+                            }
                         }
+                    }
 
-                        if !brew_config.casks.is_empty() {
-                            let result = brew.install_casks(&brew_config.casks)?;
-                            print_result("Casks", &result);
+                    // Check and install casks
+                    if !brew_config.casks.is_empty() {
+                        let installed_casks = brew.list_casks().unwrap_or_default();
+                        let missing_casks: Vec<_> = brew_config
+                            .casks
+                            .par_iter()
+                            .filter(|pkg| !installed_casks.contains(*pkg))
+                            .cloned()
+                            .collect();
+
+                        if !missing_casks.is_empty() {
+                            if dry_run {
+                                println!("  Casks ({} to install):", missing_casks.len());
+                                for pkg in &missing_casks {
+                                    println!("    → {}", pkg);
+                                }
+                            } else {
+                                let result = brew.install_casks(&missing_casks)?;
+                                print_result("Casks", &result);
+                            }
                         }
                     }
 
@@ -550,6 +667,7 @@ pub fn apply_plan(
             }
             // CODEGEN_END[cargo]: match_arm
 
+            
             // CODEGEN_MARKER: insert_section_match_arm_here
             SectionType::System => {
                 // Skip system settings unless explicitly requested
