@@ -582,6 +582,19 @@ impl {}Manager {{
     pub fn new(max_parallel: usize) -> Self {{
         Self {{ max_parallel }}
     }}
+
+    /// Parse package name with optional binary mapping
+    /// Format: "package:binary" or just "package"
+    /// Examples:
+    ///   - "typescript:tsc" -> install "typescript", check binary "tsc"
+    ///   - "eslint" -> install "eslint", check binary "eslint"
+    fn parse_package_name(input: &str) -> (&str, &str) {{
+        if let Some((pkg, bin)) = input.split_once(':') {{
+            (pkg.trim(), bin.trim())
+        }} else {{
+            (input.trim(), input.trim())
+        }}
+    }}
 }}
 
 impl Manager for {}Manager {{
@@ -599,39 +612,35 @@ impl Manager for {}Manager {{
     }}
 
     fn list_installed(&self) -> Result<HashSet<String>> {{
-        // TODO: Implement listing installed packages
-        // Example: Run `{} list --global` and parse output
-        let output = Command::new("{}")
-            .args(&["list", "--format", "json"]) // Adjust args as needed
-            .output()
-            .context("Failed to list {} packages")?;
-
-        if !output.status.success() {{
-            anyhow::bail!("Failed to list {} packages");
-        }}
-
-        // TODO: Parse output and extract package names
-        let installed = HashSet::new();
-        
-        Ok(installed)
+        // Not needed - we use `which` to check if packages are installed
+        Ok(HashSet::new())
     }}
 
     fn is_package_installed(&self, package: &str) -> Result<bool> {{
-        Ok(self.list_installed()?.contains(package))
+        // Parse package:binary format
+        let (_pkg_name, binary_name) = Self::parse_package_name(package);
+        
+        // Use `which` to check if the binary exists
+        Ok(crate::utils::command_exists(binary_name))
     }}
 
     fn install_package(&self, package: &str) -> Result<()> {{
-        println!("  Installing {{}}...", package);
+        // Parse package:binary format - install using package name
+        let (pkg_name, _binary_name) = Self::parse_package_name(package);
+        
+        println!("  Installing {{}}...", pkg_name);
 
-        // TODO: Implement package installation
-        // Example: Run `{} install <package>`
+        // TODO: Adjust the install command for your package manager
+        // Example for npm: ["install", "--global", pkg_name]
+        // Example for cargo: ["install", pkg_name]
+        // Example for pip: ["install", pkg_name]
         let status = Command::new("{}")
-            .args(&["install", package])
+            .args(&["install", pkg_name]) // Adjust args as needed
             .status()
-            .context(format!("Failed to install {{}}", package))?;
+            .context(format!("Failed to install {{}}", pkg_name))?;
 
         if !status.success() {{
-            anyhow::bail!("Failed to install {{}}", package);
+            anyhow::bail!("Failed to install {{}}", pkg_name);
         }}
 
         Ok(())
@@ -640,13 +649,11 @@ impl Manager for {}Manager {{
     fn install_packages(&self, packages: &[String]) -> Result<InstallResult> {{
         let mut result = InstallResult::default();
 
-        // Get currently installed packages
-        let installed = self.list_installed().unwrap_or_default();
-
-        // Separate into already installed vs needs installation
+        // Check which packages are already installed using `which`
+        // The check uses binary name, but we keep the full "package:binary" string for tracking
         let (already_installed, to_install): (Vec<_>, Vec<_>) = packages
             .iter()
-            .partition(|pkg| installed.contains(pkg.as_str()));
+            .partition(|pkg| self.is_package_installed(pkg).unwrap_or(false));
 
         result.skipped.extend(already_installed.into_iter().cloned());
 
@@ -677,7 +684,7 @@ impl Manager for {}Manager {{
     }}
 }}
 "#,
-        name, name_cap, name_cap, name_cap, name, name, name, name, name, name, name, name
+        name, name_cap, name_cap, name_cap, name, name, name
     );
 
     fs::write(manager_path, template).context("Failed to create manager implementation")?;
