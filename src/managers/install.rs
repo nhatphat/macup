@@ -1,4 +1,5 @@
 use crate::config::InstallScript;
+use crate::utils::command::command_exists;
 use anyhow::Result;
 use std::process::Command;
 
@@ -9,15 +10,32 @@ impl InstallManager {
         Self
     }
 
-    pub fn apply_script(&self, script: &InstallScript) -> Result<()> {
-        // Check if already installed
+    /// Check if script is already installed
+    /// Priority: binary > check command
+    pub fn is_installed(&self, script: &InstallScript) -> Result<bool> {
+        // First, check binary if provided
+        if let Some(binary) = &script.binary {
+            if command_exists(binary) {
+                return Ok(true);
+            }
+            // If binary specified but not found, try check command as fallback
+        }
+
+        // Fallback to check command
         if let Some(check_cmd) = &script.check {
             let check = Command::new("sh").arg("-c").arg(check_cmd).output()?;
+            return Ok(check.status.success());
+        }
 
-            if check.status.success() {
-                log::info!("✓ {} already installed", script.name);
-                return Ok(());
-            }
+        // If neither binary nor check provided, consider not installed
+        Ok(false)
+    }
+
+    pub fn apply_script(&self, script: &InstallScript) -> Result<()> {
+        // Check if already installed
+        if self.is_installed(script)? {
+            log::info!("✓ {} already installed", script.name);
+            return Ok(());
         }
 
         // Run install command
@@ -35,12 +53,8 @@ impl InstallManager {
         }
 
         // Verify installation
-        if let Some(check_cmd) = &script.check {
-            let verify = Command::new("sh").arg("-c").arg(check_cmd).output()?;
-
-            if !verify.status.success() {
-                anyhow::bail!("{} installed but verification failed", script.name);
-            }
+        if !self.is_installed(script)? {
+            anyhow::bail!("{} installed but verification failed", script.name);
         }
 
         log::info!("✓ {} installed", script.name);

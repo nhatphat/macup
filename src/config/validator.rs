@@ -8,6 +8,24 @@ pub fn validate_config(config: &Config) -> Result<()> {
     // Check for dependency cycles
     check_dependency_cycles(config)?;
 
+    // Validate install scripts have binary OR check
+    validate_install_scripts(config)?;
+
+    Ok(())
+}
+
+/// Validate that install scripts have at least binary or check defined
+fn validate_install_scripts(config: &Config) -> Result<()> {
+    if let Some(install) = &config.install {
+        for script in &install.scripts {
+            if script.binary.is_none() && script.check.is_none() {
+                anyhow::bail!(
+                    "Install script '{}' must have either 'binary' or 'check' field defined",
+                    script.name
+                );
+            }
+        }
+    }
     Ok(())
 }
 

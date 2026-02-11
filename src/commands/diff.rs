@@ -1,7 +1,8 @@
-use crate::config::{load_config_auto, CargoConfig, MasConfig, NpmConfig};
+use crate::config::{load_config_auto, CargoConfig, InstallConfig, MasConfig, NpmConfig};
 use crate::managers::{
     brew::BrewManager,
     cargo_manager::CargoManager, // CODEGEN[cargo]: import
+    install::InstallManager,
     mas::MasManager, // CODEGEN[mas]: import
     npm::NpmManager, // CODEGEN[npm]: import
     // CODEGEN_MARKER: insert_import_here
@@ -79,6 +80,13 @@ pub fn run(config_path: Option<&Path>) -> Result<()> {
 
     // CODEGEN_MARKER: insert_check_call_here
 
+    // Check install scripts
+    if let Some(install_config) = &config.install {
+        if let Some(result) = check_install_scripts(install_config) {
+            results.push(result);
+        }
+    }
+
     // Calculate summary
     let summary = calculate_summary(results);
 
@@ -125,7 +133,6 @@ fn check_brew_taps(taps: &[String]) -> Option<DiffResult> {
     // Check if brew is installed
     if !crate::utils::command_exists("brew") {
         return Some(DiffResult {
-            
             icon: "🍺".to_string(),
             display_name: "Homebrew Taps".to_string(),
             installed: vec![],
@@ -159,7 +166,6 @@ fn check_brew_taps(taps: &[String]) -> Option<DiffResult> {
     }
 
     Some(DiffResult {
-        
         icon: "🍺".to_string(),
         display_name: "Homebrew Taps".to_string(),
         installed,
@@ -177,7 +183,6 @@ fn check_brew_formulae(formulae: &[String]) -> Option<DiffResult> {
     // Check if brew is installed
     if !crate::utils::command_exists("brew") {
         return Some(DiffResult {
-            
             icon: "🍺".to_string(),
             display_name: "Homebrew Formulae".to_string(),
             installed: vec![],
@@ -211,7 +216,6 @@ fn check_brew_formulae(formulae: &[String]) -> Option<DiffResult> {
     }
 
     Some(DiffResult {
-        
         icon: "🍺".to_string(),
         display_name: "Homebrew Formulae".to_string(),
         installed,
@@ -229,7 +233,6 @@ fn check_brew_casks(casks: &[String]) -> Option<DiffResult> {
     // Check if brew is installed
     if !crate::utils::command_exists("brew") {
         return Some(DiffResult {
-            
             icon: "📦".to_string(),
             display_name: "Homebrew Casks".to_string(),
             installed: vec![],
@@ -263,7 +266,6 @@ fn check_brew_casks(casks: &[String]) -> Option<DiffResult> {
     }
 
     Some(DiffResult {
-        
         icon: "📦".to_string(),
         display_name: "Homebrew Casks".to_string(),
         installed,
@@ -283,7 +285,6 @@ fn check_mas_section(config: &MasConfig) -> Option<DiffResult> {
     // Check if mas is installed
     if !crate::utils::command_exists(meta.runtime_command) {
         return Some(DiffResult {
-            
             icon: meta.icon.to_string(),
             display_name: meta.display_name.to_string(),
             installed: vec![],
@@ -318,7 +319,6 @@ fn check_mas_section(config: &MasConfig) -> Option<DiffResult> {
     }
 
     Some(DiffResult {
-        
         icon: meta.icon.to_string(),
         display_name: meta.display_name.to_string(),
         installed,
@@ -339,7 +339,6 @@ fn check_npm_section(config: &NpmConfig) -> Option<DiffResult> {
     // Check if runtime is installed
     if !crate::utils::command_exists(meta.runtime_command) {
         return Some(DiffResult {
-            
             icon: meta.icon.to_string(),
             display_name: meta.display_name.to_string(),
             installed: vec![],
@@ -373,7 +372,6 @@ fn check_npm_section(config: &NpmConfig) -> Option<DiffResult> {
     }
 
     Some(DiffResult {
-        
         icon: meta.icon.to_string(),
         display_name: meta.display_name.to_string(),
         installed,
@@ -395,7 +393,6 @@ fn check_cargo_section(config: &CargoConfig) -> Option<DiffResult> {
     // Check if runtime is installed
     if !crate::utils::command_exists(meta.runtime_command) {
         return Some(DiffResult {
-            
             icon: meta.icon.to_string(),
             display_name: meta.display_name.to_string(),
             installed: vec![],
@@ -429,7 +426,6 @@ fn check_cargo_section(config: &CargoConfig) -> Option<DiffResult> {
     }
 
     Some(DiffResult {
-        
         icon: meta.icon.to_string(),
         display_name: meta.display_name.to_string(),
         installed,
@@ -440,6 +436,44 @@ fn check_cargo_section(config: &CargoConfig) -> Option<DiffResult> {
 // CODEGEN_END[cargo]: check_function
 
 // CODEGEN_MARKER: insert_check_function_here
+
+/// Check install scripts
+fn check_install_scripts(config: &InstallConfig) -> Option<DiffResult> {
+    if config.scripts.is_empty() {
+        return None;
+    }
+
+    let install_mgr = InstallManager::new();
+
+    // Check each script in parallel
+    let script_results: Vec<_> = config
+        .scripts
+        .par_iter()
+        .map(|script| {
+            let is_installed = install_mgr.is_installed(script).unwrap_or(false);
+            (script.name.clone(), is_installed)
+        })
+        .collect();
+
+    let mut installed = vec![];
+    let mut missing = vec![];
+
+    for (name, is_installed) in script_results {
+        if is_installed {
+            installed.push(name);
+        } else {
+            missing.push(name);
+        }
+    }
+
+    Some(DiffResult {
+        icon: "🔧".to_string(),
+        display_name: "Install Scripts".to_string(),
+        installed,
+        missing,
+        skipped_reason: None,
+    })
+}
 
 /// Parse package:binary format
 fn parse_package_name(input: &str) -> (&str, &str) {

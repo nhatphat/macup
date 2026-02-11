@@ -2,10 +2,9 @@
 # This is your personal Mac setup configuration
 
 [settings]
-fail_fast = false      # Continue on errors (recommended)
-max_parallel = 4       # Max concurrent package installs
+fail_fast = false # Continue on errors (recommended)
+max_parallel = 5  # Max concurrent package installs
 
-# NOTE: You don't need a [managers] section anymore!
 # macup automatically detects required managers from the sections below.
 # If you declare packages, macup will auto-install the necessary managers.
 
@@ -17,42 +16,35 @@ max_parallel = 4       # Max concurrent package installs
 depends_on = []
 
 # Taps (third-party repositories)
-taps = [
-    "homebrew/cask-fonts",
-]
+taps = []
 
 # CLI tools (formulae)
 formulae = [
-    "git",
-    "neovim",
-    "ripgrep",
-    "fd",
-    "bat",
-    "eza",
-    "zoxide",
-    "starship",
-    "fzf",
-    "chezmoi", "aws-vault", "awscli", "btop",     # For dotfiles management
+  "neovim",
+  "ripgrep",
+  "fd",
+  "zoxide",
+  "starship",
+  "fzf",
+  "chezmoi",
+  "aws-vault",
+  "awscli",
+  "btop",
 ]
+
+casks = ["ghostty", "maccy", "font-hack-nerd-font"]
 
 # GUI applications (casks)
-casks = [
-    "visual-studio-code",
-    "iterm2",
-    "arc",
-    "raycast",
-]
-
 # ============================================
 # Mac App Store Apps
 # ============================================
 
 [mas]
-depends_on = ["brew"]  # mas-cli will be auto-installed via brew if needed
+depends_on = ["brew"] # mas-cli will be auto-installed via brew if needed
 
 apps = [
-    # { name = "Xcode", id = 497799835 },
-    # { name = "1Password", id = 1333542190 },
+  # { name = "Xcode", id = 497799835 },
+  # { name = "1Password", id = 1333542190 },
 ]
 
 # ============================================
@@ -60,12 +52,12 @@ apps = [
 # ============================================
 
 [npm]
-depends_on = ["brew"]  # Node.js will be auto-installed via brew if needed
+depends_on = ["brew"] # Node.js will be auto-installed via brew if needed
 
 global = [
-    # "pnpm",
-    # "typescript",
-    # "@biomejs/biome",
+  # "pnpm",
+  # "typescript",
+  # "@biomejs/biome",
 ]
 
 # ============================================
@@ -73,12 +65,14 @@ global = [
 # ============================================
 
 [cargo]
-depends_on = ["brew"]  # Rust will be auto-installed via brew if needed (or use rustup if available)
+depends_on = [
+  "brew",
+] # Rust will be auto-installed via brew if needed (or use rustup if available)
 
 packages = [
-    # "ripgrep",
-    # "bat",
-    # "eza",
+  # "ripgrep",
+  # "bat",
+  # "eza",
 ]
 
 # ============================================
@@ -90,9 +84,9 @@ depends_on = []
 
 [[install.scripts]]
 name = "oh-my-zsh"
-check = "test -d ~/.oh-my-zsh"
+binary = "omz"                                                                                                              # Check if 'omz' binary exists
+check = "test -d ~/.oh-my-zsh"                                                                                              # Fallback: check if directory exists
 command = 'sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended'
-required = false
 
 # [[install.scripts]]
 # name = "nerd-font-jetbrains-mono"
@@ -111,22 +105,22 @@ required = false
 depends_on = []
 
 commands = [
-    # Dock settings
-    "defaults write com.apple.dock autohide -bool true",
-    "defaults write com.apple.dock tilesize -int 48",
-    "defaults write com.apple.dock show-recents -bool false",
-    "killall Dock",
-    
-    # Finder settings
-    "defaults write NSGlobalDomain AppleShowAllExtensions -bool true",
-    "defaults write com.apple.finder ShowPathbar -bool true",
-    "defaults write com.apple.finder ShowStatusBar -bool true",
-    "killall Finder",
-    
-    # Screenshots location
-    # "defaults write com.apple.screencapture location ~/Pictures/Screenshots",
-    # "mkdir -p ~/Pictures/Screenshots",
-    
-    # Disable crash reporter
-    # "defaults write com.apple.CrashReporter DialogType -string 'none'",
+  # Dock settings
+  "defaults write com.apple.dock autohide -bool true",
+  "defaults write com.apple.dock tilesize -int 48",
+  "defaults write com.apple.dock show-recents -bool false",
+  "killall Dock",
+
+  # Finder settings
+  "defaults write NSGlobalDomain AppleShowAllExtensions -bool true",
+  "defaults write com.apple.finder ShowPathbar -bool true",
+  "defaults write com.apple.finder ShowStatusBar -bool true",
+  "killall Finder",
+
+  # Screenshots location
+  # "defaults write com.apple.screencapture location ~/Pictures/Screenshots",
+  # "mkdir -p ~/Pictures/Screenshots",
+
+  # Disable crash reporter
+  # "defaults write com.apple.CrashReporter DialogType -string 'none'",
 ]

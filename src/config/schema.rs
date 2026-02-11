@@ -163,6 +163,13 @@ pub struct InstallConfig {
 pub struct InstallScript {
     pub name: String,
 
+    /// Binary name to check if installed (e.g., "rustup", "omz")
+    /// If provided, checks if binary exists in PATH
+    #[serde(default)]
+    pub binary: Option<String>,
+
+    /// Custom shell command to check if installed (e.g., "test -d ~/.oh-my-zsh")
+    /// Used as fallback if binary is not provided
     #[serde(default)]
     pub check: Option<String>,
 
