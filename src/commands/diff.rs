@@ -16,7 +16,6 @@ use std::path::Path;
 /// Result of checking packages for a single manager
 #[derive(Debug)]
 struct DiffResult {
-    manager_name: String,
     icon: String,
     display_name: String,
     installed: Vec<String>,
@@ -126,7 +125,7 @@ fn check_brew_taps(taps: &[String]) -> Option<DiffResult> {
     // Check if brew is installed
     if !crate::utils::command_exists("brew") {
         return Some(DiffResult {
-            manager_name: "brew-taps".to_string(),
+            
             icon: "🍺".to_string(),
             display_name: "Homebrew Taps".to_string(),
             installed: vec![],
@@ -160,7 +159,7 @@ fn check_brew_taps(taps: &[String]) -> Option<DiffResult> {
     }
 
     Some(DiffResult {
-        manager_name: "brew-taps".to_string(),
+        
         icon: "🍺".to_string(),
         display_name: "Homebrew Taps".to_string(),
         installed,
@@ -178,7 +177,7 @@ fn check_brew_formulae(formulae: &[String]) -> Option<DiffResult> {
     // Check if brew is installed
     if !crate::utils::command_exists("brew") {
         return Some(DiffResult {
-            manager_name: "brew-formulae".to_string(),
+            
             icon: "🍺".to_string(),
             display_name: "Homebrew Formulae".to_string(),
             installed: vec![],
@@ -212,7 +211,7 @@ fn check_brew_formulae(formulae: &[String]) -> Option<DiffResult> {
     }
 
     Some(DiffResult {
-        manager_name: "brew-formulae".to_string(),
+        
         icon: "🍺".to_string(),
         display_name: "Homebrew Formulae".to_string(),
         installed,
@@ -230,7 +229,7 @@ fn check_brew_casks(casks: &[String]) -> Option<DiffResult> {
     // Check if brew is installed
     if !crate::utils::command_exists("brew") {
         return Some(DiffResult {
-            manager_name: "brew-casks".to_string(),
+            
             icon: "📦".to_string(),
             display_name: "Homebrew Casks".to_string(),
             installed: vec![],
@@ -264,7 +263,7 @@ fn check_brew_casks(casks: &[String]) -> Option<DiffResult> {
     }
 
     Some(DiffResult {
-        manager_name: "brew-casks".to_string(),
+        
         icon: "📦".to_string(),
         display_name: "Homebrew Casks".to_string(),
         installed,
@@ -284,7 +283,7 @@ fn check_mas_section(config: &MasConfig) -> Option<DiffResult> {
     // Check if mas is installed
     if !crate::utils::command_exists(meta.runtime_command) {
         return Some(DiffResult {
-            manager_name: meta.name.to_string(),
+            
             icon: meta.icon.to_string(),
             display_name: meta.display_name.to_string(),
             installed: vec![],
@@ -319,7 +318,7 @@ fn check_mas_section(config: &MasConfig) -> Option<DiffResult> {
     }
 
     Some(DiffResult {
-        manager_name: meta.name.to_string(),
+        
         icon: meta.icon.to_string(),
         display_name: meta.display_name.to_string(),
         installed,
@@ -340,7 +339,7 @@ fn check_npm_section(config: &NpmConfig) -> Option<DiffResult> {
     // Check if runtime is installed
     if !crate::utils::command_exists(meta.runtime_command) {
         return Some(DiffResult {
-            manager_name: meta.name.to_string(),
+            
             icon: meta.icon.to_string(),
             display_name: meta.display_name.to_string(),
             installed: vec![],
@@ -374,7 +373,7 @@ fn check_npm_section(config: &NpmConfig) -> Option<DiffResult> {
     }
 
     Some(DiffResult {
-        manager_name: meta.name.to_string(),
+        
         icon: meta.icon.to_string(),
         display_name: meta.display_name.to_string(),
         installed,
@@ -396,7 +395,7 @@ fn check_cargo_section(config: &CargoConfig) -> Option<DiffResult> {
     // Check if runtime is installed
     if !crate::utils::command_exists(meta.runtime_command) {
         return Some(DiffResult {
-            manager_name: meta.name.to_string(),
+            
             icon: meta.icon.to_string(),
             display_name: meta.display_name.to_string(),
             installed: vec![],
@@ -430,7 +429,7 @@ fn check_cargo_section(config: &CargoConfig) -> Option<DiffResult> {
     }
 
     Some(DiffResult {
-        manager_name: meta.name.to_string(),
+        
         icon: meta.icon.to_string(),
         display_name: meta.display_name.to_string(),
         installed,

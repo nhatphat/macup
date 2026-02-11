@@ -3,7 +3,6 @@ use anyhow::{Context, Result};
 use colored::Colorize;
 use inquire::MultiSelect;
 use rayon::prelude::*;
-use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -24,7 +23,6 @@ enum PackageManager {
 #[derive(Debug, Clone)]
 enum ExtraData {
     MasApp { id: u64 },
-    BrewTap { tap: String },
 }
 
 /// A scanned package from the system
@@ -348,49 +346,6 @@ fn scan_pipx() -> Result<Vec<ScannedPackage>> {
     Ok(packages)
 }
 
-/// Get tap for a formula
-fn get_formula_tap(formula: &str) -> Option<String> {
-    let output = Command::new("brew")
-        .args(&["info", "--json=v2", formula])
-        .output()
-        .ok()?;
-
-    if !output.status.success() {
-        return None;
-    }
-
-    let json: serde_json::Value = serde_json::from_slice(&output.stdout).ok()?;
-    let tap = json["formulae"].get(0)?.get("tap")?.as_str()?;
-
-    // Only return non-core taps
-    if tap != "homebrew/core" && tap != "homebrew/cask" {
-        Some(tap.to_string())
-    } else {
-        None
-    }
-}
-
-/// Get tap for a cask
-fn get_cask_tap(cask: &str) -> Option<String> {
-    let output = Command::new("brew")
-        .args(&["info", "--json=v2", "--cask", cask])
-        .output()
-        .ok()?;
-
-    if !output.status.success() {
-        return None;
-    }
-
-    let json: serde_json::Value = serde_json::from_slice(&output.stdout).ok()?;
-    let tap = json["casks"].get(0)?.get("tap")?.as_str()?;
-
-    if tap != "homebrew/cask" {
-        Some(tap.to_string())
-    } else {
-        None
-    }
-}
-
 /// Detect which packages already exist in config
 fn detect_existing(packages: &mut [ScannedPackage], config: &Config) -> Result<()> {
     for pkg in packages.iter_mut() {
@@ -502,32 +457,11 @@ fn section_icon(section: &str) -> &'static str {
     }
 }
 
-/// Get display name for section
-fn section_display_name(section: &str) -> String {
-    match section {
-        "brew-formulae" => "🍺 Homebrew Formulae".to_string(),
-        "brew-casks" => "📦 Homebrew Casks".to_string(),
-        "npm" => "📦 npm Global Packages".to_string(),
-        "cargo" => "📦 Cargo Packages".to_string(),
-        "mas" => "📱 Mac App Store".to_string(),
-        "pipx" => "🐍 pipx Packages".to_string(),
-        _ => section.to_string(),
-    }
-}
-
 /// Collect required taps from selected packages
-fn collect_required_taps(packages: &[ScannedPackage]) -> Vec<String> {
-    let mut taps = HashSet::new();
-
-    for pkg in packages {
-        if let Some(ExtraData::BrewTap { tap }) = &pkg.extra_data {
-            taps.insert(tap.clone());
-        }
-    }
-
-    let mut tap_list: Vec<_> = taps.into_iter().collect();
-    tap_list.sort();
-    tap_list
+fn collect_required_taps(_packages: &[ScannedPackage]) -> Vec<String> {
+    // Tap auto-detection disabled for performance
+    // Users can manually add taps if needed
+    Vec::new()
 }
 
 /// Generate TOML preview
