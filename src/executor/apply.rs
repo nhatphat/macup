@@ -431,6 +431,7 @@ fn apply_cargo_phase(
 // CODEGEN_END[cargo]: handler_function
 
 
+
 // CODEGEN_MARKER: insert_handler_function_here
 
 pub fn apply_plan(
@@ -601,11 +602,10 @@ pub fn apply_plan(
 
                     // Check and install formulae
                     if !brew_config.formulae.is_empty() {
-                        let installed_formulae = brew.list_formulae().unwrap_or_default();
                         let missing_formulae: Vec<_> = brew_config
                             .formulae
                             .par_iter()
-                            .filter(|pkg| !installed_formulae.contains(*pkg))
+                            .filter(|pkg| !brew.is_package_installed(pkg).unwrap_or(false))
                             .cloned()
                             .collect();
 
@@ -667,6 +667,7 @@ pub fn apply_plan(
             }
             // CODEGEN_END[cargo]: match_arm
 
+            
             
             // CODEGEN_MARKER: insert_section_match_arm_here
             SectionType::System => {

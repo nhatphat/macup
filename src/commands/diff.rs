@@ -78,6 +78,8 @@ pub fn run(config_path: Option<&Path>) -> Result<()> {
     }
     // CODEGEN_END[cargo]: check_call
 
+
+
     // CODEGEN_MARKER: insert_check_call_here
 
     // Check install scripts
@@ -191,15 +193,12 @@ fn check_brew_formulae(formulae: &[String]) -> Option<DiffResult> {
         });
     }
 
-    // Get list of installed formulae
+    // Check each formula by its binary (supports package:binary format)
     let brew = BrewManager::new(1);
-    let installed_formulae = brew.list_formulae().unwrap_or_default();
-
-    // Check each formula in parallel
     let formula_results: Vec<_> = formulae
         .par_iter()
         .map(|formula| {
-            let is_installed = installed_formulae.contains(formula);
+            let is_installed = brew.is_package_installed(formula).unwrap_or(false);
             (formula.clone(), is_installed)
         })
         .collect();
@@ -434,6 +433,8 @@ fn check_cargo_section(config: &CargoConfig) -> Option<DiffResult> {
     })
 }
 // CODEGEN_END[cargo]: check_function
+
+
 
 // CODEGEN_MARKER: insert_check_function_here
 

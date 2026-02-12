@@ -14,6 +14,19 @@ impl CargoManager {
         Self { max_parallel }
     }
 
+    /// Parse package name with optional binary mapping
+    /// Format: "package:binary" or just "package"
+    /// Examples:
+    ///   - "ripgrep:rg" -> install "ripgrep", check binary "rg"
+    ///   - "bat" -> install "bat", check binary "bat"
+    fn parse_package_name(input: &str) -> (&str, &str) {
+        if let Some((pkg, bin)) = input.split_once(':') {
+            (pkg.trim(), bin.trim())
+        } else {
+            (input.trim(), input.trim())
+        }
+    }
+
     pub fn list_installed_packages(&self) -> Result<HashSet<String>> {
         let output = Command::new("cargo")
             .args(["install", "--list"])
@@ -35,19 +48,24 @@ impl CargoManager {
         Ok(packages)
     }
 
-    pub fn install_package_impl(&self, name: &str) -> Result<()> {
-        log::info!("→ Installing {} (cargo)...", name);
+    /// Install a cargo package
+    /// Accepts "package:binary" format but only uses package name for installation
+    pub fn install_package_impl(&self, package_spec: &str) -> Result<()> {
+        // Parse package:binary format - install using package name only
+        let (pkg_name, _binary_name) = Self::parse_package_name(package_spec);
+
+        log::info!("→ Installing {} (cargo)...", pkg_name);
 
         let status = Command::new("cargo")
-            .args(["install", name])
+            .args(["install", pkg_name])
             .status()
-            .context(format!("Failed to install cargo package: {}", name))?;
+            .context(format!("Failed to install cargo package: {}", pkg_name))?;
 
         if !status.success() {
-            anyhow::bail!("cargo install {} failed", name);
+            anyhow::bail!("cargo install {} failed", pkg_name);
         }
 
-        log::info!("✓ {} installed", name);
+        log::info!("✓ {} installed", pkg_name);
         Ok(())
     }
 }
@@ -69,9 +87,16 @@ impl Manager for CargoManager {
         self.list_installed_packages()
     }
 
+    fn is_package_installed(&self, package: &str) -> Result<bool> {
+        // Parse package:binary format and check if binary exists
+        let (_pkg_name, binary_name) = Self::parse_package_name(package);
+        Ok(utils::command_exists(binary_name))
+    }
+
     fn install_package(&self, package: &str) -> Result<()> {
         if self.is_package_installed(package)? {
-            log::info!("✓ {} already installed", package);
+            let (pkg_name, _) = Self::parse_package_name(package);
+            log::info!("✓ {} already installed", pkg_name);
             return Ok(());
         }
 
@@ -83,17 +108,23 @@ impl Manager for CargoManager {
             return Ok(InstallResult::default());
         }
 
-        let installed = self.list_installed_packages()?;
+        // Check which packages are already installed by checking their binaries
         let to_install: Vec<_> = packages
             .iter()
-            .filter(|pkg| !installed.contains(pkg.as_str()))
+            .filter(|pkg| {
+                let (_pkg_name, binary_name) = Self::parse_package_name(pkg);
+                !utils::command_exists(binary_name)
+            })
             .cloned()
             .collect();
 
         let mut result = InstallResult::default();
         result.skipped = packages
             .iter()
-            .filter(|pkg| installed.contains(pkg.as_str()))
+            .filter(|pkg| {
+                let (_pkg_name, binary_name) = Self::parse_package_name(pkg);
+                utils::command_exists(binary_name)
+            })
             .cloned()
             .collect();
 

@@ -21,6 +21,19 @@ impl BrewManager {
         cmd
     }
 
+    /// Parse package name with optional binary mapping
+    /// Format: "package:binary" or just "package"
+    /// Examples:
+    ///   - "httpie:http" -> install "httpie", check binary "http"
+    ///   - "neovim" -> install "neovim", check binary "neovim"
+    fn parse_package_name(input: &str) -> (&str, &str) {
+        if let Some((pkg, bin)) = input.split_once(':') {
+            (pkg.trim(), bin.trim())
+        } else {
+            (input.trim(), input.trim())
+        }
+    }
+
     /// List installed formulae
     pub fn list_formulae(&self) -> Result<HashSet<String>> {
         let output = self
@@ -85,20 +98,24 @@ impl BrewManager {
     }
 
     /// Install a formula
-    pub fn install_formula(&self, name: &str) -> Result<()> {
-        log::info!("→ Installing {} (formula)...", name);
+    /// Accepts "package:binary" format but only uses package name for installation
+    pub fn install_formula(&self, package_spec: &str) -> Result<()> {
+        // Parse package:binary format - install using package name only
+        let (pkg_name, _binary_name) = Self::parse_package_name(package_spec);
+
+        log::info!("→ Installing {} (formula)...", pkg_name);
 
         let status = self
             .brew_command()
-            .args(["install", name])
+            .args(["install", pkg_name])
             .status()
-            .context(format!("Failed to install formula: {}", name))?;
+            .context(format!("Failed to install formula: {}", pkg_name))?;
 
         if !status.success() {
-            anyhow::bail!("brew install {} failed", name);
+            anyhow::bail!("brew install {} failed", pkg_name);
         }
 
-        log::info!("✓ {} installed", name);
+        log::info!("✓ {} installed", pkg_name);
         Ok(())
     }
 
@@ -139,6 +156,7 @@ impl BrewManager {
     }
 
     /// Install formulae with idempotency
+    /// Uses binary checking for faster detection
     pub fn install_formulae(&self, formulae: &[String]) -> Result<InstallResult> {
         if formulae.is_empty() {
             return Ok(InstallResult::default());
@@ -146,20 +164,23 @@ impl BrewManager {
 
         log::info!("Checking {} formulae...", formulae.len());
 
-        // Batch check installed
-        let installed = self.list_formulae()?;
-
-        // Filter to only packages that need installation
+        // Check which formulae are already installed by checking their binaries
         let to_install: Vec<_> = formulae
             .iter()
-            .filter(|pkg| !installed.contains(pkg.as_str()))
+            .filter(|pkg| {
+                let (_pkg_name, binary_name) = Self::parse_package_name(pkg);
+                !utils::command_exists(binary_name)
+            })
             .cloned()
             .collect();
 
         let mut result = InstallResult::default();
         result.skipped = formulae
             .iter()
-            .filter(|pkg| installed.contains(pkg.as_str()))
+            .filter(|pkg| {
+                let (_pkg_name, binary_name) = Self::parse_package_name(pkg);
+                utils::command_exists(binary_name)
+            })
             .cloned()
             .collect();
 
@@ -308,9 +329,16 @@ impl Manager for BrewManager {
         self.list_formulae()
     }
 
+    fn is_package_installed(&self, package: &str) -> Result<bool> {
+        // Parse package:binary format and check if binary exists
+        let (_pkg_name, binary_name) = Self::parse_package_name(package);
+        Ok(utils::command_exists(binary_name))
+    }
+
     fn install_package(&self, package: &str) -> Result<()> {
         if self.is_package_installed(package)? {
-            log::info!("✓ {} already installed", package);
+            let (pkg_name, _) = Self::parse_package_name(package);
+            log::info!("✓ {} already installed", pkg_name);
             return Ok(());
         }
 

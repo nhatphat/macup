@@ -19,16 +19,20 @@ depends_on = []
 taps = []
 
 # CLI tools (formulae)
+# Format: "package" or "package:binary" for custom binary name checking
+# Examples:
+#   - "neovim" -> installs neovim, checks for 'neovim' binary
+#   - "httpie:http" -> installs httpie, checks for 'http' binary
 formulae = [
-  "neovim",
-  "ripgrep",
+  "neovim:nvim",
+  "ripgrep:rg",
   "fd",
   "zoxide",
   "starship",
   "fzf",
   "chezmoi",
   "aws-vault",
-  "awscli",
+  "awscli:aws",
   "btop",
 ]
 
@@ -54,10 +58,14 @@ apps = [
 [npm]
 depends_on = ["brew"] # Node.js will be auto-installed via brew if needed
 
+# Format: "package" or "package:binary" for custom binary name checking
+# Examples:
+#   - "typescript:tsc" -> installs typescript, checks for 'tsc' binary
+#   - "prettier" -> installs prettier, checks for 'prettier' binary
 global = [
   # "pnpm",
-  # "typescript",
-  # "@biomejs/biome",
+  # "typescript:tsc",
+  # "@biomejs/biome:biome",
 ]
 
 # ============================================
@@ -69,8 +77,12 @@ depends_on = [
   "brew",
 ] # Rust will be auto-installed via brew if needed (or use rustup if available)
 
+# Format: "package" or "package:binary" for custom binary name checking
+# Examples:
+#   - "ripgrep:rg" -> installs ripgrep, checks for 'rg' binary
+#   - "bat" -> installs bat, checks for 'bat' binary
 packages = [
-  # "ripgrep",
+  # "ripgrep:rg",
   # "bat",
   # "eza",
 ]
