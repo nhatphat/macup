@@ -24,7 +24,7 @@ taps = []
 #   - "neovim" -> installs neovim, checks for 'neovim' binary
 #   - "httpie:http" -> installs httpie, checks for 'http' binary
 formulae = [
-  "neovim:nvim",
+  # "neovim:nvim",
   "ripgrep:rg",
   "fd",
   "zoxide",
@@ -34,9 +34,34 @@ formulae = [
   "aws-vault",
   "awscli:aws",
   "btop",
+  "aria2:aria2c",
+  "gh",
+  "git-crypt",
+  "gnupg:gpg",
+  "jq",
+  "just",
+  "lazygit",
+  "lua",
+  "markdownlint-cli2",
+  "mise",
+  "mkcert",
+  "node",
+  "rust:cargo",
+  "terraform",
+  "mas",
 ]
 
-casks = ["ghostty", "maccy", "font-hack-nerd-font"]
+casks = [
+  "ghostty",
+  "maccy",
+  "font-hack-nerd-font",
+  "zed",
+  # "orbstack",
+  "brave-browser",
+  "yaak",
+  "arc",
+  "shortcat",
+]
 
 # GUI applications (casks)
 # ============================================
@@ -47,8 +72,10 @@ casks = ["ghostty", "maccy", "font-hack-nerd-font"]
 depends_on = ["brew"] # mas-cli will be auto-installed via brew if needed
 
 apps = [
-  # { name = "Xcode", id = 497799835 },
-  # { name = "1Password", id = 1333542190 },
+  { name = "Mattermost Desktop", id = 1614666244 },
+  { name = "Translator by Mate", id = 1005088137 },
+  { name = "TestFlight", id = 899247664 },
+  { name = "Slack for Desktop", id = 803453959 },
 ]
 
 # ============================================
@@ -62,11 +89,7 @@ depends_on = ["brew"] # Node.js will be auto-installed via brew if needed
 # Examples:
 #   - "typescript:tsc" -> installs typescript, checks for 'tsc' binary
 #   - "prettier" -> installs prettier, checks for 'prettier' binary
-global = [
-  # "pnpm",
-  # "typescript:tsc",
-  # "@biomejs/biome:biome",
-]
+global = ["@github/copilot:copilot", "@yaakapp/cli:yaakcli"]
 
 # ============================================
 # Cargo Packages
@@ -77,15 +100,7 @@ depends_on = [
   "brew",
 ] # Rust will be auto-installed via brew if needed (or use rustup if available)
 
-# Format: "package" or "package:binary" for custom binary name checking
-# Examples:
-#   - "ripgrep:rg" -> installs ripgrep, checks for 'rg' binary
-#   - "bat" -> installs bat, checks for 'bat' binary
-packages = [
-  # "ripgrep:rg",
-  # "bat",
-  # "eza",
-]
+packages = []
 
 # ============================================
 # Custom Install Scripts
@@ -96,9 +111,33 @@ depends_on = []
 
 [[install.scripts]]
 name = "oh-my-zsh"
-binary = "omz"                                                                                                              # Check if 'omz' binary exists
-check = "test -d ~/.oh-my-zsh"                                                                                              # Fallback: check if directory exists
-command = 'sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended'
+check = "test -d ~/.oh-my-zsh"
+command = 'sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"'
+
+[[install.scripts]]
+name = "zsh-autosuggestions"
+check = "test -d ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions"
+command = 'git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions'
+
+[[install.scripts]]
+name = "zsh-syntax-highlighting"
+check = "test -d ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting"
+command = 'git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting'
+
+[[install.scripts]]
+name = "neovim"
+binary = "nvim"
+command = 'HOMEBREW_NO_AUTO_UPDATE=1 brew install neovim --head'
+
+[[install.scripts]]
+name = "opencode"
+binary = "opencode"
+command = 'curl -fsSL https://opencode.ai/install | bash'
+
+[[install.scripts]]
+name = "claude code"
+binary = "claude"
+command = "curl -fsSL https://claude.ai/install.sh | bash"
 
 # [[install.scripts]]
 # name = "nerd-font-jetbrains-mono"
