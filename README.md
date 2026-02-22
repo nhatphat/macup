@@ -8,15 +8,38 @@ A thin orchestrator for Mac bootstrap and setup. Declaratively configure your ma
 - 📱 **Mac App Store**: Install apps via mas-cli
 - 📦 **Package Managers**: Support for npm, cargo, pip, gem
 - 🔧 **Custom Scripts**: Run curl installers (rustup, oh-my-zsh, etc.)
-- ⚙️ **System Settings**: Apply macOS defaults and configurations
-- 🚀 **Parallel Installation**: Install packages concurrently for speed
+- ⚙️ **System Settings**: Apply and verify macOS defaults configurations
 - ✅ **Idempotent**: Safe to run multiple times, only installs what's missing
+- 🔍 **Diff Checking**: Compare current state vs config with `macup diff`
+- ⚙️ **System Settings Verification**: Check if macOS defaults are applied with `macup diff --with-system`
+- 🚀 **Parallel Installation**: Install packages concurrently for speed
 - 🎯 **Dependency Resolution**: Automatic execution order based on dependencies
 - ➕ **Easy Adding**: `macup add npm pnpm` to install and save to config
 - 📥 **Import Existing Setup**: `macup import` to scan and import currently installed packages
 - 🤖 **Auto-Install**: Automatically installs required managers and runtimes (Homebrew, mas-cli, Node.js, Rust, Python, Ruby)
 - 🔄 **Error Recovery**: Continue on failures and retry with idempotent re-runs
 - 🔌 **Extensible**: Easily add new package managers with code generation
+
+## Quick Examples
+
+```bash
+# Install everything from config
+macup apply
+
+# Check what's missing or different
+macup diff
+macup diff --with-system  # Include system settings check
+
+# Preview changes before applying
+macup apply --dry-run --with-system-settings
+
+# Add new packages
+macup add brew ripgrep bat
+macup add npm typescript eslint
+
+# Import existing packages
+macup import
+```
 
 ## Quick Start
 
@@ -80,12 +103,32 @@ macup apply
 ### Apply full configuration
 
 ```bash
-macup apply                            # Install packages only (skip system settings)
-macup apply --dry-run                  # Preview changes without applying
-macup apply --with-system-settings     # Install packages AND apply system settings
+macup apply                             # Install packages only (skip system settings)
+macup apply --dry-run                   # Preview changes without applying
+macup apply --with-system-settings      # Install packages AND apply system settings
+macup apply --dry-run --with-system-settings  # Preview including system changes
 ```
 
 **Note:** System settings (macOS defaults commands) are **skipped by default** and only run when you explicitly use `--with-system-settings`. This prevents accidentally modifying system preferences on every run.
+
+**Dry-run output example:**
+
+```bash
+macup apply --dry-run --with-system-settings
+```
+
+```
+⚙️  Applying system settings...
+  37 settings to apply:
+    → defaults write com.apple.dock autohide-delay -float 0.0
+    → defaults write com.apple.finder ShowPathbar -bool true
+    ...
+  ✓ 18 already applied
+  3 action commands to run:
+    → killall Dock
+    → killall Finder
+    → killall SystemUIServer
+```
 
 ### Add packages dynamically
 
@@ -152,10 +195,59 @@ macup diff
 - 📱 Mac App Store apps (with IDs)
 - 🐍 pipx packages
 
+### System Settings Management
+
+macup can manage and verify your macOS system preferences using `defaults` commands.
+
+#### Apply System Settings
+
+```bash
+# Preview what will change
+macup apply --dry-run --with-system-settings
+
+# Apply system settings
+macup apply --with-system-settings
+```
+
+#### Check Current Status
+
+```bash
+# Compare current system settings with your config
+macup diff --with-system
+```
+
+**Output example:**
+```
+⚙️ System Settings
+  ✓ defaults write com.apple.dock autohide -bool true          ← Already applied
+  ❌ ❌ defaults write com.apple.dock largesize -int 32        ← Different value (current: 46)
+  ❌ ? defaults write com.apple.finder ShowPathbar -bool true  ← Not set yet
+  Summary: 18/55
+
+Overall Summary:
+  ✓ Installed: 63
+  ❌ Missing: 38
+```
+
+**Status Meanings:**
+- ✓ **Applied** - Current value matches your config
+- ❌ **Not Applied** - Setting exists but has a different value
+- ? **Unknown** - Setting doesn't exist yet or can't be read
+
+**How it works:**
+1. Parses each `defaults write` command from your config
+2. Reads current value using `defaults read`
+3. Normalizes and compares values (handles bool 1/0 vs true/false, quotes, etc.)
+4. Shows exactly what needs to change
+5. Action commands like `killall` are automatically skipped during checking
+
+This feature runs in **parallel** for fast checking of many settings.
+
 ### Check differences
 
 ```bash
-macup diff    # Show what's missing or changed
+macup diff                # Show what's missing or changed (packages only)
+macup diff --with-system  # Include system settings check
 ```
 
 Shows installed vs missing packages for all configured managers:
@@ -178,6 +270,29 @@ Overall Summary
 
 Run 'macup apply' to install missing packages.
 ```
+
+**With system settings check:**
+
+```bash
+macup diff --with-system
+```
+
+```
+⚙️ System Settings
+  ✓ defaults write com.apple.dock autohide -bool true
+  ❌ ❌ defaults write com.apple.dock largesize -int 32        ← Different value
+  ❌ ? defaults write com.apple.finder ShowPathbar -bool true  ← Not set yet
+  Summary: 18/55
+
+Overall Summary
+  ✓ Installed: 63
+  ❌ Missing: 38
+```
+
+**Status indicators:**
+- ✓ Applied - setting matches your config
+- ❌ ❌ Not Applied - setting exists but has different value
+- ❌ ? Unknown - setting doesn't exist yet
 
 ## Configuration
 
@@ -338,6 +453,47 @@ For custom curl installers:
 - Executed sequentially after all packages are installed
 - **Only runs when `--with-system-settings` flag is provided**
 
+**Checking system settings:**
+
+Use `macup diff --with-system` to verify your current settings:
+
+```bash
+macup diff --with-system
+```
+
+This will parse each `defaults write` command and compare the current value with your configured value:
+- ✓ **Applied** - setting matches config
+- ❌ **Not Applied** - setting exists but differs from config
+- ? **Unknown** - setting doesn't exist yet or can't be read
+
+Action commands like `killall` are automatically skipped during checking.
+
+**Example system commands:**
+```toml
+[system]
+commands = [
+    # Dock settings
+    "defaults write com.apple.dock autohide -bool true",
+    "defaults write com.apple.dock tilesize -int 16",
+    "defaults write com.apple.dock orientation -string 'left'",
+    
+    # Finder settings
+    "defaults write com.apple.finder ShowPathbar -bool true",
+    "defaults write com.apple.finder AppleShowAllFiles -bool true",
+    
+    # Apply changes
+    "killall Dock",
+    "killall Finder",
+]
+```
+
+**Supported value types:**
+- `-bool true|false`
+- `-int 42`
+- `-float 0.5`
+- `-string "value"`
+- `-array` (for empty arrays)
+
 ## How It Works
 
 ### Execution Flow
@@ -355,20 +511,39 @@ For custom curl installers:
 5. **Run Install Scripts**: Sequential, with idempotency checks
 6. **Apply System Settings** (optional): Execute commands sequentially
    - Only runs with `--with-system-settings` flag
+   - Checks current values before applying (smart idempotency)
    - Skipped by default to avoid unintended system changes
+
+**Diff Command Flow:**
+
+1. **Parse Config**: Load package and system settings configuration
+2. **Check Package Managers**: Query installed packages in parallel
+3. **Check System Settings** (with `--with-system`): 
+   - Parse `defaults write` commands from config
+   - Read current values with `defaults read` (parallel)
+   - Compare and categorize: Applied / Not Applied / Unknown
+4. **Display Results**: Show status for each item with color coding
 
 ### Idempotency
 
-macup checks before installing:
-- **Brew**: `brew list --formula` / `brew list --cask`
+macup checks before installing to skip already-installed packages:
+
+**Packages:**
+- **Brew**: Checks via binary existence (fast) or `brew list`
 - **mas**: `mas list`
-- **npm**: `npm list -g`
-- **cargo**: `cargo install --list`
+- **npm**: Binary existence or `npm list -g`
+- **cargo**: Binary existence or `cargo install --list`
 - **pip**: `pip list`
 - **gem**: `gem list`
-- **Install scripts**: Custom `check` command
+- **Install scripts**: Custom `check` command or binary existence
 
-Already-installed packages are skipped automatically.
+**System Settings:**
+- Parses each `defaults write` command
+- Reads current value with `defaults read`
+- Compares normalized values (handles bool 1/0 vs true/false, string quotes, etc.)
+- Use `macup diff --with-system` to see current state
+
+Already-installed packages and applied settings are automatically skipped.
 
 ### Dependency Resolution
 
@@ -617,12 +792,40 @@ macup/
 │   ├── config/          # TOML parsing & validation
 │   ├── managers/        # Brew, mas, npm, cargo managers
 │   ├── executor/        # Execution planner & applier
-│   ├── system/          # System commands executor
-│   ├── commands/        # Command implementations (apply, add, diff)
+│   ├── system/          # System settings executor & checker
+│   │   └── mod.rs       # Defaults command parsing, value comparison
+│   ├── commands/        # Command implementations (apply, add, diff, import)
+│   │   ├── apply.rs     # Install packages & apply settings
+│   │   ├── diff.rs      # Compare config vs current state
+│   │   ├── add.rs       # Add packages to config
+│   │   └── import.rs    # Import installed packages
 │   └── utils/           # Utilities (command runner, etc.)
 ├── macup.toml           # Your personal config
 ├── bootstrap.sh         # Initial setup script
 └── README.md
+```
+
+### System Settings Module
+
+The `system/mod.rs` module handles macOS defaults:
+
+**Key Features:**
+- **Parsing**: Regex-based parsing of `defaults write` commands
+- **Value Types**: Supports bool, int, float, string, array
+- **Normalization**: Handles bool (1/0 vs true/false), string quotes, empty arrays
+- **Parallel Checking**: Uses rayon for fast checking of many settings
+- **Smart Comparison**: Reads current values and compares accurately
+- **Status Tracking**: Applied / Not Applied / Unknown / Skipped
+
+**Example:**
+```rust
+// Parse command
+let cmd = "defaults write com.apple.dock autohide -bool true";
+let setting = SystemManager::parse_defaults_command(cmd);
+
+// Check current value
+let status = system_manager.is_setting_applied(cmd);
+// Returns: Applied | NotApplied | Unknown | Skipped
 ```
 
 ## Design Philosophy
@@ -642,7 +845,8 @@ macup/
 
 ## Roadmap / Future Ideas
 
-- [ ] `macup diff` - Show drift between config and system
+- [x] `macup diff` - Show drift between config and system ✅
+- [x] `macup diff --with-system` - Check system settings status ✅
 - [ ] `macup remove <manager> <package>` - Uninstall and remove from config
 - [ ] `macup doctor` - Health check (brew doctor, etc.)
 - [ ] `macup cleanup` - Remove packages not in config

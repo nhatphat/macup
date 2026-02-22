@@ -430,8 +430,6 @@ fn apply_cargo_phase(
 }
 // CODEGEN_END[cargo]: handler_function
 
-
-
 // CODEGEN_MARKER: insert_handler_function_here
 
 pub fn apply_plan(
@@ -667,8 +665,6 @@ pub fn apply_plan(
             }
             // CODEGEN_END[cargo]: match_arm
 
-            
-            
             // CODEGEN_MARKER: insert_section_match_arm_here
             SectionType::System => {
                 // Skip system settings unless explicitly requested
@@ -693,8 +689,55 @@ pub fn apply_plan(
                     );
 
                     if dry_run {
-                        for cmd in &system_config.commands {
-                            println!("  → Would run: {}", cmd);
+                        use crate::system::SettingStatus;
+
+                        let system = SystemManager::new();
+                        let checks = system
+                            .check_settings(&system_config.commands)
+                            .unwrap_or_default();
+
+                        // Categorize settings
+                        let mut to_apply = vec![];
+                        let mut already_applied = vec![];
+                        let mut action_commands = vec![];
+
+                        for check in checks {
+                            match check.status {
+                                SettingStatus::NotApplied | SettingStatus::Unknown => {
+                                    to_apply.push(check.command);
+                                }
+                                SettingStatus::Applied => {
+                                    already_applied.push(check.command);
+                                }
+                                SettingStatus::Skipped => {
+                                    action_commands.push(check.command);
+                                }
+                            }
+                        }
+
+                        // Show what needs to be applied
+                        if !to_apply.is_empty() {
+                            println!("  {} settings to apply:", to_apply.len());
+                            for cmd in &to_apply {
+                                println!("    → {}", cmd);
+                            }
+                        }
+
+                        // Show what's already applied
+                        if !already_applied.is_empty() {
+                            println!(
+                                "  {} {} already applied",
+                                "✓".green(),
+                                already_applied.len()
+                            );
+                        }
+
+                        // Show action commands that will run
+                        if !action_commands.is_empty() {
+                            println!("  {} action commands to run:", action_commands.len());
+                            for cmd in &action_commands {
+                                println!("    → {}", cmd);
+                            }
                         }
                     } else {
                         let system = SystemManager::new();

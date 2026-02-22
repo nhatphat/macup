@@ -35,7 +35,11 @@ pub enum Command {
     },
 
     /// Show difference between config and current state
-    Diff,
+    Diff {
+        /// Include system settings check
+        #[arg(long)]
+        with_system: bool,
+    },
 
     /// Import packages from current system
     Import,

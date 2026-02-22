@@ -33,7 +33,7 @@ struct DiffSummary {
     total_skipped: usize,
 }
 
-pub fn run(config_path: Option<&Path>) -> Result<()> {
+pub fn run(config_path: Option<&Path>, with_system: bool) -> Result<()> {
     // Load config
     let (_config_path, config) = load_config_auto(config_path)?;
 
@@ -78,8 +78,6 @@ pub fn run(config_path: Option<&Path>) -> Result<()> {
     }
     // CODEGEN_END[cargo]: check_call
 
-
-
     // CODEGEN_MARKER: insert_check_call_here
 
     // Check install scripts
@@ -87,6 +85,24 @@ pub fn run(config_path: Option<&Path>) -> Result<()> {
         if let Some(result) = check_install_scripts(install_config) {
             results.push(result);
         }
+    }
+
+    // Check system settings (only if --with-system flag is set)
+    if with_system {
+        if let Some(system_config) = &config.system {
+            if let Some(result) = check_system_section(system_config) {
+                results.push(result);
+            }
+        }
+    } else if config.system.is_some() {
+        // Show a hint that system settings are available but not checked
+        println!(
+            "{}",
+            "💡 Use --with-system to check system settings"
+                .bright_yellow()
+                .dimmed()
+        );
+        println!();
     }
 
     // Calculate summary
@@ -434,8 +450,6 @@ fn check_cargo_section(config: &CargoConfig) -> Option<DiffResult> {
 }
 // CODEGEN_END[cargo]: check_function
 
-
-
 // CODEGEN_MARKER: insert_check_function_here
 
 /// Check install scripts
@@ -472,6 +486,58 @@ fn check_install_scripts(config: &InstallConfig) -> Option<DiffResult> {
         display_name: "Install Scripts".to_string(),
         installed,
         missing,
+        skipped_reason: None,
+    })
+}
+
+/// Check system settings
+fn check_system_section(config: &crate::config::SystemConfig) -> Option<DiffResult> {
+    if config.commands.is_empty() {
+        return None;
+    }
+
+    use crate::system::{SettingStatus, SystemManager};
+
+    let system_mgr = SystemManager::new();
+
+    // Check all settings in parallel
+    let checks = system_mgr
+        .check_settings(&config.commands)
+        .unwrap_or_default();
+
+    let mut applied = vec![];
+    let mut not_applied = vec![];
+    let mut unknown = vec![];
+
+    for check in checks {
+        match check.status {
+            SettingStatus::Applied => applied.push(check.command),
+            SettingStatus::NotApplied => not_applied.push(check.command),
+            SettingStatus::Unknown => unknown.push(check.command),
+            SettingStatus::Skipped => {
+                // Skip action commands like "killall Dock" - don't show in diff
+            }
+        }
+    }
+
+    // Build display list
+    // Applied settings show as "installed"
+    // Not applied + unknown show as "missing"
+
+    // Create a custom display by combining not_applied and unknown with markers
+    let mut missing_with_markers = vec![];
+    for cmd in not_applied {
+        missing_with_markers.push(format!("{} {}", "❌", cmd));
+    }
+    for cmd in unknown {
+        missing_with_markers.push(format!("{} {}", "?", cmd));
+    }
+
+    Some(DiffResult {
+        icon: "⚙️".to_string(),
+        display_name: "System Settings".to_string(),
+        installed: applied,
+        missing: missing_with_markers,
         skipped_reason: None,
     })
 }

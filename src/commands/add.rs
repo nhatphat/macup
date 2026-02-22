@@ -2,8 +2,8 @@ use crate::config::{find_config_file, load_config};
 use crate::managers::{
     brew::BrewManager,
     cargo_manager::CargoManager, // CODEGEN[cargo]: import
-    mas::MasManager, // CODEGEN[mas]: import
-    npm::NpmManager, // CODEGEN[npm]: import
+    mas::MasManager,             // CODEGEN[mas]: import
+    npm::NpmManager,             // CODEGEN[npm]: import
     // CODEGEN_MARKER: insert_manager_import_here
     Manager,
     ManagerMetadata,

@@ -36,8 +36,8 @@ fn main() -> Result<()> {
                 section.as_deref(),
             )?;
         }
-        Command::Diff => {
-            commands::diff::run(cli.config.as_deref())?;
+        Command::Diff { with_system } => {
+            commands::diff::run(cli.config.as_deref(), with_system)?;
         }
         Command::Import => {
             commands::import::run(cli.config.as_deref())?;

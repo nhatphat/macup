@@ -29,6 +29,7 @@ dirs = "4.0"
 home = "=0.5.5"
 colored = "2.1"
 indicatif = "0.17"
+regex = "1.10"
 
 # Interactive UI
 inquire = "0.7"
