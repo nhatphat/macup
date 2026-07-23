@@ -43,32 +43,48 @@ macup import
 
 ## Quick Start
 
-### Option 1: Use Pre-built Binary (Fastest) ⚡
+### Install Pre-built Binary
 
 ```bash
-# 1. Clone repo
-git clone https://github.com/yourusername/macup.git
-cd macup
-
-# 2. Run directly (no build needed!)
-./macup apply
+curl -fsSL https://raw.githubusercontent.com/nhatphat/macup/master/install.sh | bash
 ```
 
-**That's it!** macup will:
-- ✅ Auto-install Homebrew if not present
-- ✅ Install all packages from config
-- ✅ Apply system settings
+This installs the latest Apple Silicon release to `~/.local/bin/macup` and creates `~/.config/macup/config.toml` if missing.
 
-> **Note:** Pre-built binary is for macOS Apple Silicon (M1/M2/M3). For Intel Macs, use Option 2.
+> **Note:** Pre-built releases currently support macOS Apple Silicon only.
 
-### Option 2: Build from Source
+### Customize Your Config
 
 ```bash
-# 1. Clone repo
-git clone https://github.com/yourusername/macup.git
-cd macup
+vim ~/.config/macup/config.toml
+```
 
-# 2. Run bootstrap script
+Customize the example config with your preferred tools and apps.
+
+### Preview What Will Be Installed
+
+```bash
+macup apply --dry-run
+```
+
+### Apply Your Setup
+
+```bash
+macup apply
+```
+
+macup will:
+- ✅ Auto-install Homebrew if not present
+- ✅ Install all packages from config
+- ✅ Apply system settings when requested
+
+### Build From Source
+
+For local development or testing unreleased changes:
+
+```bash
+git clone https://github.com/nhatphat/macup.git
+cd macup
 ./bootstrap.sh
 ```
 
@@ -77,26 +93,16 @@ This will:
 - Install Rust if needed
 - Build macup from source
 - Install binary to `~/.cargo/bin/macup`
+- Create `~/.config/macup/config.toml` from `config.example.toml` if missing
 
-### 3. Customize your config (optional)
-
-```bash
-vim macup.toml
-```
-
-Customize the example config with your preferred tools and apps.
-
-### 4. Preview what will be installed (optional)
+### Release A New Version
 
 ```bash
-./macup apply --dry-run
+git tag v0.1.0
+git push origin v0.1.0
 ```
 
-### 5. Apply your setup
-
-```bash
-macup apply
-```
+Pushing a `v*` tag builds the Apple Silicon binary and uploads it to GitHub Releases.
 
 ## Usage
 
@@ -165,7 +171,7 @@ This will:
 2. ✅ Mark packages already in your config
 3. 🎯 Show interactive selection (use Space to toggle, Enter to confirm)
 4. 👀 Preview changes before writing
-5. 📝 Merge selected packages into your `macup.toml`
+5. 📝 Merge selected packages into your config file
 
 **Example workflow:**
 ```bash
@@ -296,10 +302,11 @@ Overall Summary
 
 ## Configuration
 
-Config file locations (in priority order):
-1. `./macup.toml` (current directory)
-2. `~/.config/macup/macup.toml`
-3. `~/.macup.toml`
+Default config file location:
+
+`~/.config/macup/config.toml`
+
+macup only reads this default path unless you pass `--config`.
 
 Or specify custom location:
 ```bash
@@ -562,12 +569,11 @@ Sections without dependencies can run earlier. Circular dependencies are detecte
 ## Workflow: Setup New Mac
 
 ```bash
-# 1. Clone your macup repo
-git clone https://github.com/yourusername/macup.git
-cd macup
+# 1. Install macup
+curl -fsSL https://raw.githubusercontent.com/nhatphat/macup/master/install.sh | bash
 
-# 2. Bootstrap
-./bootstrap.sh
+# 2. Edit config if needed
+vim ~/.config/macup/config.toml
 
 # 3. Apply setup
 macup apply
@@ -584,8 +590,8 @@ macup add brew bat
 # Or add multiple at once
 macup add npm pnpm typescript eslint
 
-# Commit changes
-git add macup.toml
+# Commit changes in your dotfiles/config repo
+git add config.toml
 git commit -m "Add bat, pnpm, typescript, eslint"
 git push
 
@@ -668,7 +674,7 @@ After running `macup new manager pipx`, you'll have:
    }
    ```
 
-2. **Config Support** - Users can now add to `macup.toml`:
+2. **Config Support** - Users can now add to their config file:
    ```toml
    [pipx]
    packages = ["poetry", "black", "ruff"]
@@ -800,7 +806,7 @@ macup/
 │   │   ├── add.rs       # Add packages to config
 │   │   └── import.rs    # Import installed packages
 │   └── utils/           # Utilities (command runner, etc.)
-├── macup.toml           # Your personal config
+├── config.example.toml  # Example config
 ├── bootstrap.sh         # Initial setup script
 └── README.md
 ```

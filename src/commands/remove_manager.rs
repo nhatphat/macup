@@ -91,7 +91,7 @@ pub fn run(name: &str) -> Result<()> {
     println!("{}", "Next steps:".bold());
     println!("  1. Run {} to verify compilation", "cargo build".cyan());
     println!(
-        "  2. Remove any references to {} in your macup.toml",
+        "  2. Remove any references to {} in your config file",
         format!("[{}]", name).cyan()
     );
     println!();

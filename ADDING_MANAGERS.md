@@ -85,7 +85,7 @@ Provides a fully-structured template implementing the `Manager` trait with:
    cargo build
    ```
 
-3. **Add to your macup.toml**:
+3. **Add to your config file**:
    ```toml
    [pip]
    packages = ["requests", "flask", "pytest"]

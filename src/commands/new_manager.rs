@@ -102,7 +102,7 @@ pub fn run(
     );
     println!("  2. Run {} to verify compilation", "cargo build".cyan());
     println!(
-        "  3. Test with {} in your macup.toml",
+        "  3. Test with {} in your config file",
         format!("[{}]", name).cyan()
     );
     println!(

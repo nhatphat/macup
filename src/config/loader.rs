@@ -5,9 +5,7 @@ use std::path::{Path, PathBuf};
 
 /// Find config file in order of priority:
 /// 1. Explicit --config flag path
-/// 2. ./macup.toml (current directory)
-/// 3. ~/.config/macup/macup.toml
-/// 4. ~/.macup.toml
+/// 2. ~/.config/macup/config.toml
 pub fn find_config_file(explicit_path: Option<&Path>) -> Result<PathBuf> {
     // 1. Explicit path
     if let Some(path) = explicit_path {
@@ -17,34 +15,18 @@ pub fn find_config_file(explicit_path: Option<&Path>) -> Result<PathBuf> {
         anyhow::bail!("Config file not found: {}", path.display());
     }
 
-    // 2. Current directory
-    let cwd_config = PathBuf::from("./macup.toml");
-    if cwd_config.exists() {
-        return Ok(cwd_config);
+    let config_path = default_config_path()?;
+    if config_path.exists() {
+        return Ok(config_path);
     }
 
-    // 3. ~/.config/macup/macup.toml
-    if let Some(config_dir) = dirs::config_dir() {
-        let config_path = config_dir.join("macup/macup.toml");
-        if config_path.exists() {
-            return Ok(config_path);
-        }
-    }
+    anyhow::bail!("No config file found at {}", config_path.display());
+}
 
-    // 4. ~/.macup.toml
-    if let Some(home_dir) = dirs::home_dir() {
-        let home_config = home_dir.join(".macup.toml");
-        if home_config.exists() {
-            return Ok(home_config);
-        }
-    }
-
-    anyhow::bail!(
-        "No config file found. Searched:\n\
-         - ./macup.toml\n\
-         - ~/.config/macup/macup.toml\n\
-         - ~/.macup.toml"
-    );
+/// Default XDG config path used by macup.
+pub fn default_config_path() -> Result<PathBuf> {
+    let config_dir = dirs::config_dir().context("Failed to determine user config directory")?;
+    Ok(config_dir.join("macup").join("config.toml"))
 }
 
 /// Load and parse config file

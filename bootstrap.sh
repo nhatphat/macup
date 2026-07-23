@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Bootstrapping macup..."
+echo "🚀 Bootstrapping macup from source..."
 echo ""
 
 # Check if Homebrew is installed
@@ -41,15 +41,28 @@ cargo build --release
 echo "📦 Installing macup to ~/.cargo/bin..."
 cargo install --path .
 
+# Create default config if it does not exist
+CONFIG_DIR="$HOME/.config/macup"
+CONFIG_FILE="$CONFIG_DIR/config.toml"
+
+mkdir -p "$CONFIG_DIR"
+
+if [[ ! -f "$CONFIG_FILE" ]]; then
+    cp config.example.toml "$CONFIG_FILE"
+    echo "✓ Created config at $CONFIG_FILE"
+else
+    echo "✓ Config already exists at $CONFIG_FILE"
+fi
+
 echo ""
 echo "=========================================="
 echo "✅ Bootstrap complete!"
 echo "=========================================="
 echo ""
 echo "Next steps:"
-echo "  1. Create or edit your config: vim macup.toml"
+echo "  1. Create or edit your config: vim ~/.config/macup/config.toml"
 echo "  2. Preview changes:  macup apply --dry-run"
 echo "  3. Apply setup:      macup apply"
 echo ""
-echo "Example config has been created at: macup.toml"
+echo "Default config path: ~/.config/macup/config.toml"
 echo ""

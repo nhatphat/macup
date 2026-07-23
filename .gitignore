@@ -4,5 +4,5 @@
 *.pdb
 .DS_Store
 
-# Allow root binary
-!/macup
+# Local release binary
+/macup

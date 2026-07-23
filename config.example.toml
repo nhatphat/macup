@@ -50,7 +50,7 @@ formulae = [
   "terraform",
   "mas",
   "uv",
-  "mole",
+  "mole", "awscli", "cloudflared", "dnsmasq", "eza", "gnupg", "helm", "imagemagick", "lfk",
 ]
 
 casks = [

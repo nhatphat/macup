@@ -83,7 +83,7 @@ pub fn run(config_path: Option<&Path>) -> Result<()> {
     println!("{}", preview);
 
     // 6. Confirm
-    let confirmed = inquire::Confirm::new("Add these packages to macup.toml?")
+    let confirmed = inquire::Confirm::new("Add these packages to config?")
         .with_default(true)
         .prompt()?;
 

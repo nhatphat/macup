@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-apple-silicon:
+    name: Build Apple Silicon binary
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Build release binary
+        run: cargo build --release --target aarch64-apple-darwin
+
+      - name: Package release asset
+        run: |
+          set -euo pipefail
+          asset="macup-aarch64-apple-darwin"
+          mkdir -p "dist/${asset}"
+          cp target/aarch64-apple-darwin/release/macup "dist/${asset}/macup"
+          cp config.example.toml "dist/${asset}/config.example.toml"
+          chmod +x "dist/${asset}/macup"
+          tar -C dist -czf "dist/${asset}.tar.gz" "${asset}"
+          (cd dist && shasum -a 256 "${asset}.tar.gz" > "${asset}.tar.gz.sha256")
+
+      - name: Upload GitHub Release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/macup-aarch64-apple-darwin.tar.gz
+            dist/macup-aarch64-apple-darwin.tar.gz.sha256
