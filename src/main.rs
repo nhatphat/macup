@@ -42,6 +42,9 @@ fn main() -> Result<()> {
         Command::Import => {
             commands::import::run(cli.config.as_deref())?;
         }
+        Command::Update => {
+            commands::update::run()?;
+        }
         Command::Add {
             manager,
             packages,

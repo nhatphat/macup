@@ -43,13 +43,13 @@ macup import
 
 ## Quick Start
 
-### Install Pre-built Binary
+### Install Or Update Pre-built Binary
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/nhatphat/macup/master/install.sh | bash
 ```
 
-This installs the latest Apple Silicon release to `~/.local/bin/macup` and creates `~/.config/macup/config.toml` if missing.
+This installs or updates the latest Apple Silicon release to `~/.local/bin/macup` and creates `~/.config/macup/config.toml` if missing.
 
 > **Note:** Pre-built releases currently support macOS Apple Silicon only.
 
@@ -72,6 +72,14 @@ macup apply --dry-run
 ```bash
 macup apply
 ```
+
+### Update macup
+
+```bash
+macup update
+```
+
+`macup update` downloads the latest release and updates the directory that contains the current `macup` binary.
 
 macup will:
 - ✅ Auto-install Homebrew if not present
@@ -98,8 +106,8 @@ This will:
 ### Release A New Version
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.1.1
+git push origin v0.1.1
 ```
 
 Pushing a `v*` tag builds the Apple Silicon binary and uploads it to GitHub Releases.

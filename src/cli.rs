@@ -44,6 +44,9 @@ pub enum Command {
     /// Import packages from current system
     Import,
 
+    /// Update macup to the latest release
+    Update,
+
     /// Add package(s) to config and install
     Add {
         /// Manager type: brew, cask, mas, npm, cargo, gem, pipx, npx

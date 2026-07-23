@@ -47,7 +47,7 @@ info "Verifying checksum..."
     shasum -a 256 -c "${ASSET}.sha256"
 )
 
-info "Installing macup to ${INSTALL_DIR}..."
+info "Installing/updating macup to ${INSTALL_DIR}..."
 mkdir -p "$INSTALL_DIR"
 tar -xzf "${TMP_DIR}/${ASSET}" -C "$TMP_DIR"
 install -m 0755 "${TMP_DIR}/macup-aarch64-apple-darwin/macup" "$INSTALL_DIR/macup"

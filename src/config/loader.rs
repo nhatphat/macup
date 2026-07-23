@@ -25,8 +25,8 @@ pub fn find_config_file(explicit_path: Option<&Path>) -> Result<PathBuf> {
 
 /// Default XDG config path used by macup.
 pub fn default_config_path() -> Result<PathBuf> {
-    let config_dir = dirs::config_dir().context("Failed to determine user config directory")?;
-    Ok(config_dir.join("macup").join("config.toml"))
+    let home_dir = dirs::home_dir().context("Failed to determine user home directory")?;
+    Ok(home_dir.join(".config").join("macup").join("config.toml"))
 }
 
 /// Load and parse config file

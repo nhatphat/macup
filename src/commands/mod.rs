@@ -4,3 +4,4 @@ pub mod diff;
 pub mod import;
 pub mod new_manager;
 pub mod remove_manager;
+pub mod update;
