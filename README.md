@@ -149,6 +149,7 @@ macup apply --dry-run --with-system-settings
 ```bash
 # Add and install packages
 macup add brew ripgrep bat eza
+macup a brew ripgrep bat eza
 macup add cask ghostty arc
 macup add npm pnpm typescript
 macup add cargo tokei sd
@@ -163,6 +164,18 @@ When you use `macup add`:
 1. Packages are installed first
 2. Only successfully installed packages are saved to config
 3. Config file is updated automatically
+
+### Remove packages from config
+
+```bash
+macup remove brew ripgrep bat
+macup rm brew ripgrep bat
+macup remove cask ghostty
+macup remove npm pnpm
+macup remove cargo tokei
+```
+
+`remove` only updates your macup config. It does not uninstall packages from your system.
 
 **Supported managers**: `brew`, `cask`, `mas`, `npm`, `cargo`, `pip`, `gem`
 
@@ -594,9 +607,13 @@ macup apply
 ```bash
 # Discover a new tool
 macup add brew bat
+macup a brew bat
 
 # Or add multiple at once
 macup add npm pnpm typescript eslint
+
+# Remove a tool from config
+macup rm brew bat
 
 # Commit changes in your dotfiles/config repo
 git add config.toml
@@ -639,7 +656,7 @@ macup makes it easy to add support for new package managers using code generatio
 
 ```bash
 # Create a new package manager
-./macup new manager <name> \
+./macup dev generate manager <name> \
   --display "Display Name" \
   --icon "🎨" \
   --runtime-cmd "command-name" \
@@ -647,7 +664,7 @@ macup makes it easy to add support for new package managers using code generatio
   --brew-formula "brew-formula-name"
 
 # Example: Add support for pipx (Python CLI tools)
-./macup new manager pipx \
+./macup dev generate manager pipx \
   --display "Python CLI Apps" \
   --icon "🐍" \
   --runtime-cmd "pipx" \
@@ -665,7 +682,7 @@ This generates:
 
 #### What Gets Generated
 
-After running `macup new manager pipx`, you'll have:
+After running `macup dev generate manager pipx`, you'll have:
 
 1. **Manager Implementation** (`src/managers/pipx.rs`):
    ```rust
@@ -699,7 +716,7 @@ After running `macup new manager pipx`, you'll have:
 
 1. **Generate the manager**:
    ```bash
-   ./macup new manager pipx --display "Python CLI Apps" \
+   ./macup dev generate manager pipx --display "Python CLI Apps" \
      --icon "🐍" --runtime-cmd "pipx" --runtime-name "pipx" \
      --brew-formula "pipx"
    ```
@@ -751,10 +768,10 @@ fn list_installed(&self) -> Result<HashSet<String>> {
 If you need to remove a manager:
 
 ```bash
-./macup remove manager <name>
+./macup dev remove manager <name>
 
 # Example
-./macup remove manager pipx
+./macup dev remove manager pipx
 ```
 
 This removes all generated code:
@@ -783,8 +800,8 @@ macup uses a marker-based code generation system:
 
 - **CODEGEN_MARKER** comments mark insertion points
 - **CODEGEN_START/END** pairs wrap generated code
-- `macup new manager` inserts code at markers
-- `macup remove manager` removes code between START/END pairs
+- `macup dev generate manager` inserts code at markers
+- `macup dev remove manager` removes code between START/END pairs
 - Indent-aware generation preserves code formatting
 
 Example markers:
@@ -861,7 +878,7 @@ let status = system_manager.is_setting_applied(cmd);
 
 - [x] `macup diff` - Show drift between config and system ✅
 - [x] `macup diff --with-system` - Check system settings status ✅
-- [ ] `macup remove <manager> <package>` - Uninstall and remove from config
+- [x] `macup remove <manager> <package>` - Remove package entries from config ✅
 - [ ] `macup doctor` - Health check (brew doctor, etc.)
 - [ ] `macup cleanup` - Remove packages not in config
 - [ ] Shell completions (bash, zsh, fish)

@@ -561,7 +561,7 @@ fn generate_toml_preview(packages: &[ScannedPackage], taps: &[String]) -> Result
             preview.push('\n');
         }
         preview.push_str("# Note: pipx is not a built-in manager yet\n");
-        preview.push_str("# Add support with: macup new manager pipx ...\n");
+        preview.push_str("# Add support with: macup dev generate manager pipx ...\n");
         preview.push_str("\n[pipx]\n");
         preview.push_str("packages = [\n");
         for pkg in &pipx_packages {

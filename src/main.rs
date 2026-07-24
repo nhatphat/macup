@@ -8,7 +8,7 @@ mod utils;
 
 use anyhow::Result;
 use clap::Parser;
-use cli::{Cli, Command, NewResource, RemoveResource};
+use cli::{Cli, Command, DevCommand, DevRemoveResource, GenerateResource};
 
 fn main() -> Result<()> {
     // Setup logging
@@ -52,29 +52,27 @@ fn main() -> Result<()> {
         } => {
             commands::add::run(cli.config.as_deref(), &manager, packages, no_install)?;
         }
-        Command::New { resource } => match resource {
-            NewResource::Manager {
-                name,
-                display,
-                icon,
-                runtime_cmd,
-                runtime_name,
-                brew_formula,
-            } => {
-                commands::new_manager::run(
-                    &name,
-                    &display,
-                    &icon,
-                    &runtime_cmd,
-                    &runtime_name,
-                    &brew_formula,
-                )?;
-            }
-        },
-        Command::Remove { resource } => match resource {
-            RemoveResource::Manager { name } => {
-                commands::remove_manager::run(&name)?;
-            }
+        Command::Remove { manager, packages } => {
+            commands::remove::run(cli.config.as_deref(), &manager, packages)?;
+        }
+        Command::Dev { command } => match command {
+            DevCommand::Generate { resource } => match resource {
+                GenerateResource::Manager(args) => {
+                    commands::new_manager::run(
+                        &args.name,
+                        &args.display,
+                        &args.icon,
+                        &args.runtime_cmd,
+                        &args.runtime_name,
+                        &args.brew_formula,
+                    )?;
+                }
+            },
+            DevCommand::Remove { resource } => match resource {
+                DevRemoveResource::Manager { name } => {
+                    commands::remove_manager::run(&name)?;
+                }
+            },
         },
     }
 

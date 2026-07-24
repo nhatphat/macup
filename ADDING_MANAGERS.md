@@ -7,7 +7,7 @@ macup makes it easy to add support for new package managers with a single comman
 To add a new package manager (e.g., pip, gem, go), run:
 
 ```bash
-macup new manager <name> \
+macup dev generate manager <name> \
   --display "<Display Name>" \
   --icon "<emoji>" \
   --runtime-cmd "<command>" \
@@ -18,7 +18,7 @@ macup new manager <name> \
 ### Example: Adding pip support
 
 ```bash
-macup new manager pip \
+macup dev generate manager pip \
   --display "pip packages" \
   --icon "🐍" \
   --runtime-cmd "pip3" \
@@ -102,7 +102,7 @@ Provides a fully-structured template implementing the `Manager` trait with:
 Here's how you'd add Ruby gems support:
 
 ```bash
-macup new manager gem \
+macup dev generate manager gem \
   --display "Ruby gems" \
   --icon "💎" \
   --runtime-cmd "gem" \
@@ -181,7 +181,7 @@ The generated code follows macup's architecture:
 
 ### After (Automated - 1 command)
 ```bash
-macup new manager pip --display "pip packages" --icon "🐍" \
+macup dev generate manager pip --display "pip packages" --icon "🐍" \
   --runtime-cmd "pip3" --runtime-name "python" --brew-formula "python"
 ```
 

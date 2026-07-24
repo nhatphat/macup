@@ -48,6 +48,7 @@ pub enum Command {
     Update,
 
     /// Add package(s) to config and install
+    #[command(alias = "a")]
     Add {
         /// Manager type: brew, cask, mas, npm, cargo, gem, pipx, npx
         manager: String,
@@ -60,53 +61,75 @@ pub enum Command {
         no_install: bool,
     },
 
-    /// Create a new package manager (developer tool)
-    New {
-        #[command(subcommand)]
-        resource: NewResource,
+    /// Remove package(s) from config
+    #[command(alias = "rm")]
+    Remove {
+        /// Manager type: brew, cask, npm, cargo, gem, pipx, npx
+        manager: String,
+
+        /// Package name(s) to remove
+        packages: Vec<String>,
     },
 
-    /// Remove a package manager (developer tool)
+    /// Developer tools for maintaining macup itself
+    Dev {
+        #[command(subcommand)]
+        command: DevCommand,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum DevCommand {
+    /// Generate developer boilerplate
+    Generate {
+        #[command(subcommand)]
+        resource: GenerateResource,
+    },
+
+    /// Remove developer boilerplate
     Remove {
         #[command(subcommand)]
-        resource: RemoveResource,
+        resource: DevRemoveResource,
     },
 }
 
 #[derive(Subcommand)]
-pub enum NewResource {
+pub enum GenerateResource {
     /// Generate boilerplate for a new package manager
-    Manager {
-        /// Manager name (e.g., pip, gem, go)
-        name: String,
-
-        /// Display name (e.g., "pip packages")
-        #[arg(long)]
-        display: String,
-
-        /// Icon emoji (e.g., 🐍)
-        #[arg(long)]
-        icon: String,
-
-        /// Runtime command to check (e.g., pip3)
-        #[arg(long)]
-        runtime_cmd: String,
-
-        /// Human-readable runtime name (e.g., python)
-        #[arg(long)]
-        runtime_name: String,
-
-        /// Brew formula name (e.g., python)
-        #[arg(long)]
-        brew_formula: String,
-    },
+    Manager(ManagerGeneratorArgs),
 }
 
 #[derive(Subcommand)]
-pub enum RemoveResource {
+pub enum DevRemoveResource {
     /// Remove a package manager
     Manager {
         /// Manager name (e.g., pip, gem, go)
         name: String,
     },
+}
+
+#[derive(clap::Args)]
+pub struct ManagerGeneratorArgs {
+    /// Manager name (e.g., pip, gem, go)
+    pub name: String,
+
+    /// Display name (e.g., "pip packages")
+    #[arg(long)]
+    pub display: String,
+
+    /// Icon emoji (e.g., 🐍)
+    #[arg(long)]
+    pub icon: String,
+
+    /// Runtime command to check (e.g., pip3)
+    #[arg(long)]
+    pub runtime_cmd: String,
+
+    /// Human-readable runtime name (e.g., python)
+    #[arg(long)]
+    pub runtime_name: String,
+
+    /// Brew formula name (e.g., python)
+    #[arg(long)]
+    pub brew_formula: String,
 }
