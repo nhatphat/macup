@@ -52,7 +52,11 @@ pub fn run(
     // Step 4: Add handler function
     println!("{} Generating handler function...", "4.".bold());
     add_handler_function(name, &name_capitalized)?;
-    println!("   {} {}", "✓".green(), "src/executor/apply.rs".dimmed());
+    println!(
+        "   {} {}",
+        "✓".green(),
+        "src/executor/apply/mod.rs".dimmed()
+    );
     println!();
 
     // Step 5: Create manager implementation template
@@ -80,10 +84,10 @@ pub fn run(
     println!("   {} {}", "✓".green(), "src/commands/add.rs".dimmed());
     println!();
 
-    // Step 8: Update diff.rs for 'macup diff' support
+    // Step 8: Update diff module for 'macup diff' support
     println!("{} Adding 'macup diff' command support...", "8.".bold());
     add_to_diff_command(name, &name_capitalized)?;
-    println!("   {} {}", "✓".green(), "src/commands/diff.rs".dimmed());
+    println!("   {} {}", "✓".green(), "src/diff/mod.rs".dimmed());
     println!();
 
     println!("{}", "=".repeat(60).bright_green());
@@ -400,7 +404,7 @@ fn add_config_struct(name: &str, name_cap: &str) -> Result<()> {
 }
 
 fn add_handler_function(name: &str, name_cap: &str) -> Result<()> {
-    let apply_path = Path::new("src/executor/apply.rs");
+    let apply_path = Path::new("src/executor/apply/mod.rs");
     let content = fs::read_to_string(apply_path).context("Failed to read apply.rs")?;
 
     // 1. Add import with pair markers
@@ -744,7 +748,7 @@ fn update_managers_mod(name: &str) -> Result<()> {
 }
 
 fn add_to_diff_command(name: &str, name_cap: &str) -> Result<()> {
-    let diff_path = Path::new("src/commands/diff.rs");
+    let diff_path = Path::new("src/diff/mod.rs");
     let content = fs::read_to_string(diff_path).context("Failed to read diff.rs")?;
 
     // 1. Add config import at the top
@@ -786,7 +790,7 @@ fn add_to_diff_command(name: &str, name_cap: &str) -> Result<()> {
     }
 
     let call_indent = extract_indent(&updated_content, call_marker);
-    let new_call = vec![
+    let new_call = [
         format!("{}// CODEGEN_START[{}]: check_call", call_indent, name),
         format!(
             "{}if let Some({}_config) = &config.{} {{",
@@ -800,7 +804,7 @@ fn add_to_diff_command(name: &str, name_cap: &str) -> Result<()> {
         format!("{}    }}", call_indent),
         format!("{}}}", call_indent),
         format!("{}// CODEGEN_END[{}]: check_call", call_indent, name),
-        format!(""),
+        String::new(),
         format!("{}{}", call_indent, call_marker),
     ]
     .join("\n");

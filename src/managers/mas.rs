@@ -95,12 +95,14 @@ impl Manager for MasManager {
             .cloned()
             .collect();
 
-        let mut result = InstallResult::default();
-        result.skipped = packages
-            .iter()
-            .filter(|pkg| installed.contains(pkg.as_str()))
-            .cloned()
-            .collect();
+        let mut result = InstallResult {
+            skipped: packages
+                .iter()
+                .filter(|pkg| installed.contains(pkg.as_str()))
+                .cloned()
+                .collect(),
+            ..Default::default()
+        };
 
         if !result.skipped.is_empty() {
             log::info!("✓ {} apps already installed", result.skipped.len());

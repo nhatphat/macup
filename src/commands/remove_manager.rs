@@ -48,7 +48,11 @@ pub fn run(name: &str) -> Result<()> {
     // Step 4: Remove handler function
     println!("{} Removing handler function...", "4.".bold());
     remove_handler_function(name, &name_capitalized)?;
-    println!("   {} {}", "✓".green(), "src/executor/apply.rs".dimmed());
+    println!(
+        "   {} {}",
+        "✓".green(),
+        "src/executor/apply/mod.rs".dimmed()
+    );
     println!();
 
     // Step 5: Remove manager implementation file
@@ -73,10 +77,10 @@ pub fn run(name: &str) -> Result<()> {
     println!("   {} {}", "✓".green(), "src/commands/add.rs".dimmed());
     println!();
 
-    // Step 8: Remove from diff.rs
+    // Step 8: Remove from diff module
     println!("{} Removing from 'macup diff' command...", "8.".bold());
     remove_from_diff_command(name, &name_capitalized)?;
-    println!("   {} {}", "✓".green(), "src/commands/diff.rs".dimmed());
+    println!("   {} {}", "✓".green(), "src/diff/mod.rs".dimmed());
     println!();
 
     println!("{}", "=".repeat(60).bright_green());
@@ -166,7 +170,7 @@ fn remove_from_add_command(name: &str, name_cap: &str) -> Result<()> {
 }
 
 fn remove_from_diff_command(name: &str, name_cap: &str) -> Result<()> {
-    let diff_path = Path::new("src/commands/diff.rs");
+    let diff_path = Path::new("src/diff/mod.rs");
     let content = fs::read_to_string(diff_path).context("Failed to read diff.rs")?;
 
     // 1. Remove config import from line 1
@@ -423,7 +427,7 @@ fn remove_config_struct(name: &str, _name_cap: &str) -> Result<()> {
 }
 
 fn remove_handler_function(name: &str, _name_cap: &str) -> Result<()> {
-    let apply_path = Path::new("src/executor/apply.rs");
+    let apply_path = Path::new("src/executor/apply/mod.rs");
     let content = fs::read_to_string(apply_path).context("Failed to read apply.rs")?;
 
     // 1. Remove handler function using pair markers

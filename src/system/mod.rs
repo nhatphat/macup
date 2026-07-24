@@ -5,6 +5,12 @@ use std::process::Command;
 
 pub struct SystemManager;
 
+impl Default for SystemManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum DefaultsValueType {
     Bool,

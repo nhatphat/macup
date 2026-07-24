@@ -106,8 +106,8 @@ This will:
 ### Release A New Version
 
 ```bash
-git tag v0.1.1
-git push origin v0.1.1
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 Pushing a `v*` tag builds the Apple Silicon binary and uploads it to GitHub Releases.
@@ -819,17 +819,18 @@ This allows you to safely add/remove managers without manual code editing!
 ```
 macup/
 ├── src/
-│   ├── cli.rs           # CLI commands (clap)
+│   ├── cli/             # CLI definitions and dispatch
 │   ├── config/          # TOML parsing & validation
+│   ├── diff/            # Compare config vs current state
+│   ├── import/          # Scan and import installed packages
 │   ├── managers/        # Brew, mas, npm, cargo managers
-│   ├── executor/        # Execution planner & applier
+│   ├── executor/        # Execution planner & apply modules
 │   ├── system/          # System settings executor & checker
 │   │   └── mod.rs       # Defaults command parsing, value comparison
-│   ├── commands/        # Command implementations (apply, add, diff, import)
+│   ├── commands/        # Thin command wrappers
 │   │   ├── apply.rs     # Install packages & apply settings
-│   │   ├── diff.rs      # Compare config vs current state
 │   │   ├── add.rs       # Add packages to config
-│   │   └── import.rs    # Import installed packages
+│   │   └── import.rs    # Import command wrapper
 │   └── utils/           # Utilities (command runner, etc.)
 ├── config.example.toml  # Example config
 ├── bootstrap.sh         # Initial setup script

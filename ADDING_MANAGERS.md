@@ -31,7 +31,7 @@ This single command automatically generates:
 - ✅ SectionType enum variant
 - ✅ Config struct and PipConfig type
 - ✅ PackageManagerSection trait implementation
-- ✅ Handler function in apply.rs
+- ✅ Handler function in `src/executor/apply/mod.rs`
 - ✅ Manager implementation template in managers/pip.rs
 - ✅ Module exports
 
@@ -60,7 +60,7 @@ pub struct PipConfig {
 }
 ```
 
-### 3. Handler Function (`src/executor/apply.rs`)
+### 3. Handler Function (`src/executor/apply/mod.rs`)
 Auto-generates a complete handler that:
 - Checks if runtime is installed
 - Auto-installs via brew if missing
@@ -174,7 +174,7 @@ The generated code follows macup's architecture:
 4. Edit `schema.rs` - implement PackageManagerSection
 5. Edit `schema.rs` - add Config field
 6. Edit `schema.rs` - add get_manager_config match arm
-7. Edit `apply.rs` - add handler function (~80 lines)
+7. Edit `src/executor/apply/mod.rs` - add handler function (~80 lines)
 8. Create `managers/pip.rs` - implement Manager (~110 lines)
 
 **Total: ~200 lines across 8 locations**

@@ -118,15 +118,17 @@ impl Manager for CargoManager {
             .cloned()
             .collect();
 
-        let mut result = InstallResult::default();
-        result.skipped = packages
-            .iter()
-            .filter(|pkg| {
-                let (_pkg_name, binary_name) = Self::parse_package_name(pkg);
-                utils::command_exists(binary_name)
-            })
-            .cloned()
-            .collect();
+        let mut result = InstallResult {
+            skipped: packages
+                .iter()
+                .filter(|pkg| {
+                    let (_pkg_name, binary_name) = Self::parse_package_name(pkg);
+                    utils::command_exists(binary_name)
+                })
+                .cloned()
+                .collect(),
+            ..Default::default()
+        };
 
         if !result.skipped.is_empty() {
             log::info!(

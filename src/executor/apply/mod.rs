@@ -18,44 +18,11 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::process::Command;
 
-/// Tracks execution context and state
-#[derive(Debug, Default)]
-struct ExecutionContext {
-    available_managers: HashSet<String>,
-    skipped_phases: Vec<SkippedPhase>,
-}
+mod state;
+mod summary;
 
-#[derive(Debug)]
-struct SkippedPhase {
-    name: String,
-    reason: String,
-}
-
-/// Tracks failures during apply execution
-#[derive(Debug, Default)]
-struct ApplyErrors {
-    manager_failures: Vec<ManagerFailure>,
-    package_failures: Vec<PackageFailure>,
-}
-
-#[derive(Debug)]
-struct ManagerFailure {
-    name: String,
-    reason: String,
-}
-
-#[derive(Debug)]
-struct PackageFailure {
-    package: String,
-    manager: String,
-    reason: String,
-}
-
-impl ApplyErrors {
-    fn has_failures(&self) -> bool {
-        !self.manager_failures.is_empty() || !self.package_failures.is_empty()
-    }
-}
+use state::{ApplyErrors, ExecutionContext, ManagerFailure, PackageFailure, SkippedPhase};
+use summary::print_summary;
 
 // CODEGEN_START[mas]: handler_function
 /// Handler for Mas package manager phase
@@ -487,12 +454,7 @@ pub fn apply_plan(
 
         match &phase.section_type {
             SectionType::Managers => {
-                println!(
-                    "{}",
-                    format!("📦 Checking package managers...")
-                        .bright_cyan()
-                        .bold()
-                );
+                println!("{}", "📦 Checking package managers...".bright_cyan().bold());
 
                 // Get required managers (auto-detected)
                 let required_managers = config.get_required_managers();
@@ -527,12 +489,7 @@ pub fn apply_plan(
 
             SectionType::Install => {
                 if let Some(install_config) = &config.install {
-                    println!(
-                        "{}",
-                        format!("🔧 Running install scripts...")
-                            .bright_cyan()
-                            .bold()
-                    );
+                    println!("{}", "🔧 Running install scripts...".bright_cyan().bold());
 
                     let install_mgr = InstallManager::new();
 
@@ -568,9 +525,7 @@ pub fn apply_plan(
                 if let Some(brew_config) = &config.brew {
                     println!(
                         "{}",
-                        format!("🍺 Installing Homebrew packages...")
-                            .bright_cyan()
-                            .bold()
+                        "🍺 Installing Homebrew packages...".bright_cyan().bold()
                     );
 
                     let brew = BrewManager::new(max_parallel);
@@ -681,12 +636,7 @@ pub fn apply_plan(
                 }
 
                 if let Some(system_config) = &config.system {
-                    println!(
-                        "{}",
-                        format!("⚙️  Applying system settings...")
-                            .bright_cyan()
-                            .bold()
-                    );
+                    println!("{}", "⚙️  Applying system settings...".bright_cyan().bold());
 
                     if dry_run {
                         use crate::system::SettingStatus;
@@ -885,67 +835,4 @@ fn install_runtime_via_brew(formula: &str) -> Result<()> {
     }
 
     Ok(())
-}
-
-/// Print comprehensive summary at end of apply
-fn print_summary(errors: &ApplyErrors, ctx: &ExecutionContext) {
-    println!();
-    println!("{}", "=".repeat(50).yellow());
-    println!("{}", "⚠️  macup completed with issues".yellow().bold());
-    println!("{}", "=".repeat(50).yellow());
-    println!();
-
-    // Print skipped phases first
-    if !ctx.skipped_phases.is_empty() {
-        println!("{}", "Skipped phases:".yellow().bold());
-        for skipped in &ctx.skipped_phases {
-            println!("  ⊘ {} phase", skipped.name.yellow());
-            println!("     Reason: {}", skipped.reason);
-            println!();
-        }
-    }
-
-    if !errors.manager_failures.is_empty() {
-        println!("{}", "Failed manager installations:".red().bold());
-        for failure in &errors.manager_failures {
-            println!("  ❌ {} ({})", failure.name.red(), "manager");
-            println!("     Reason: {}", failure.reason);
-            println!(
-                "     Fix: Install {} manually and re-run macup apply",
-                failure.name
-            );
-            println!();
-        }
-    }
-
-    if !errors.package_failures.is_empty() {
-        println!("{}", "Failed package installations:".red().bold());
-
-        // Group by manager for cleaner output
-        let mut by_manager: std::collections::HashMap<String, Vec<&PackageFailure>> =
-            std::collections::HashMap::new();
-
-        for failure in &errors.package_failures {
-            by_manager
-                .entry(failure.manager.clone())
-                .or_insert_with(Vec::new)
-                .push(failure);
-        }
-
-        for (manager, failures) in by_manager {
-            println!("  {} via {}:", "Packages".red(), manager);
-            for failure in failures {
-                println!("    ❌ {}", failure.package);
-                println!("       Reason: {}", failure.reason);
-            }
-            println!();
-        }
-    }
-
-    println!(
-        "💡 {}",
-        "Run 'macup apply' again after fixing the issues.".bright_yellow()
-    );
-    println!("   Already installed packages will be skipped automatically.");
-    println!();
 }

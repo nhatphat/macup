@@ -37,7 +37,7 @@ impl NpmManager {
             .lines()
             .filter_map(|line| {
                 // Extract package name from path
-                line.split('/').last().map(|s| s.to_string())
+                line.split('/').next_back().map(|s| s.to_string())
             })
             .collect();
 
@@ -114,15 +114,17 @@ impl Manager for NpmManager {
             .cloned()
             .collect();
 
-        let mut result = InstallResult::default();
-        result.skipped = packages
-            .iter()
-            .filter(|pkg| {
-                let (_pkg_name, binary_name) = Self::parse_package_name(pkg);
-                utils::command_exists(binary_name)
-            })
-            .cloned()
-            .collect();
+        let mut result = InstallResult {
+            skipped: packages
+                .iter()
+                .filter(|pkg| {
+                    let (_pkg_name, binary_name) = Self::parse_package_name(pkg);
+                    utils::command_exists(binary_name)
+                })
+                .cloned()
+                .collect(),
+            ..Default::default()
+        };
 
         if !result.skipped.is_empty() {
             log::info!("✓ {} npm packages already installed", result.skipped.len());

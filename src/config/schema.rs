@@ -239,11 +239,11 @@ impl Config {
             || self
                 .install
                 .as_ref()
-                .map_or(false, |i| i.depends_on.contains(&"brew".to_string()))
+                .is_some_and(|i| i.depends_on.contains(&"brew".to_string()))
             || self
                 .system
                 .as_ref()
-                .map_or(false, |s| s.depends_on.contains(&"brew".to_string()));
+                .is_some_and(|s| s.depends_on.contains(&"brew".to_string()));
 
         if needs_brew && !managers.contains(&"brew".to_string()) {
             managers.push("brew".to_string());

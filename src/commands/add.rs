@@ -1,4 +1,4 @@
-use crate::config::{find_config_file, load_config};
+use crate::config::{add_packages_to_config, find_config_file, load_config};
 use crate::managers::{
     brew::BrewManager,
     cargo_manager::CargoManager, // CODEGEN[cargo]: import
@@ -9,11 +9,9 @@ use crate::managers::{
     ManagerMetadata,
     PACKAGE_MANAGERS,
 };
-use anyhow::{Context, Result};
+use anyhow::Result;
 use colored::Colorize;
-use std::fs;
 use std::path::Path;
-use toml_edit::DocumentMut;
 
 pub fn run(
     config_path: Option<&Path>,
@@ -124,7 +122,7 @@ pub fn run(
     if !to_add.is_empty() {
         println!();
         println!("Updating config...");
-        update_config_file(&config_file, manager, &to_add)?;
+        add_packages_to_config(&config_file, manager, &to_add)?;
         println!(
             "{}",
             format!("✓ Added {} package(s) to config", to_add.len()).green()
@@ -141,66 +139,6 @@ pub fn run(
         for (pkg, err) in errors {
             println!("  - {}: {}", pkg, err);
         }
-    }
-
-    Ok(())
-}
-
-fn update_config_file(path: &Path, manager: &str, packages: &[String]) -> Result<()> {
-    let content =
-        fs::read_to_string(path).context(format!("Failed to read config: {}", path.display()))?;
-
-    let mut doc = content
-        .parse::<DocumentMut>()
-        .context("Failed to parse TOML")?;
-
-    // Determine section and key - check registry first
-    let (section, key) = if let Some(meta) = ManagerMetadata::get_by_name(manager) {
-        // Dynamic manager from registry - most use "packages" key
-        match meta.name {
-            "mas" => {
-                // Special case: mas needs ID format
-                anyhow::bail!("Adding mas apps via CLI not yet supported. Edit config manually.");
-            }
-            "npm" => ("npm", "global"), // npm uses "global" instead of "packages"
-            _ => (meta.name, "packages"), // Default: use manager name as section, "packages" as key
-        }
-    } else {
-        // Special cases not in registry
-        match manager {
-            "brew" => ("brew", "formulae"),
-            "cask" => ("brew", "casks"),
-            _ => anyhow::bail!("Unknown manager: {}", manager),
-        }
-    };
-
-    // Get or create section
-    if doc.get(section).is_none() {
-        doc[section] = toml_edit::table();
-    }
-
-    // Get or create array
-    if doc[section].get(key).is_none() {
-        doc[section][key] = toml_edit::array();
-    }
-
-    let array = doc[section][key]
-        .as_array_mut()
-        .context(format!("Expected array at [{}.{}]", section, key))?;
-
-    // Add packages
-    let mut added = 0;
-    for pkg in packages {
-        // Check if already in config
-        if !array.iter().any(|v| v.as_str() == Some(pkg)) {
-            array.push(pkg.as_str());
-            added += 1;
-        }
-    }
-
-    if added > 0 {
-        fs::write(path, doc.to_string())
-            .context(format!("Failed to write config: {}", path.display()))?;
     }
 
     Ok(())

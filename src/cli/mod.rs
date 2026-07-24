@@ -1,6 +1,8 @@
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
+pub mod dispatch;
+
 #[derive(Parser)]
 #[command(name = "macup")]
 #[command(author, version, about, long_about = None)]

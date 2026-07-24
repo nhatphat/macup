@@ -5,6 +5,12 @@ use std::process::Command;
 
 pub struct InstallManager;
 
+impl Default for InstallManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InstallManager {
     pub fn new() -> Self {
         Self

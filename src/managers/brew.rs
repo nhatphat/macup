@@ -174,15 +174,17 @@ impl BrewManager {
             .cloned()
             .collect();
 
-        let mut result = InstallResult::default();
-        result.skipped = formulae
-            .iter()
-            .filter(|pkg| {
-                let (_pkg_name, binary_name) = Self::parse_package_name(pkg);
-                utils::command_exists(binary_name)
-            })
-            .cloned()
-            .collect();
+        let mut result = InstallResult {
+            skipped: formulae
+                .iter()
+                .filter(|pkg| {
+                    let (_pkg_name, binary_name) = Self::parse_package_name(pkg);
+                    utils::command_exists(binary_name)
+                })
+                .cloned()
+                .collect(),
+            ..Default::default()
+        };
 
         if !result.skipped.is_empty() {
             log::info!("✓ {} formulae already installed", result.skipped.len());
@@ -231,12 +233,14 @@ impl BrewManager {
             .cloned()
             .collect();
 
-        let mut result = InstallResult::default();
-        result.skipped = casks
-            .iter()
-            .filter(|pkg| installed.contains(pkg.as_str()))
-            .cloned()
-            .collect();
+        let mut result = InstallResult {
+            skipped: casks
+                .iter()
+                .filter(|pkg| installed.contains(pkg.as_str()))
+                .cloned()
+                .collect(),
+            ..Default::default()
+        };
 
         if !result.skipped.is_empty() {
             log::info!("✓ {} casks already installed", result.skipped.len());
@@ -284,12 +288,14 @@ impl BrewManager {
             .cloned()
             .collect();
 
-        let mut result = InstallResult::default();
-        result.skipped = taps
-            .iter()
-            .filter(|tap| installed.contains(tap.as_str()))
-            .cloned()
-            .collect();
+        let mut result = InstallResult {
+            skipped: taps
+                .iter()
+                .filter(|tap| installed.contains(tap.as_str()))
+                .cloned()
+                .collect(),
+            ..Default::default()
+        };
 
         if !result.skipped.is_empty() {
             log::info!("✓ {} taps already added", result.skipped.len());
